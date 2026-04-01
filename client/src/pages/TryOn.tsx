@@ -13,15 +13,18 @@ export default function TryOn() {
   
   // Mock data
   const models = [
-    "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&q=80",
-    "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&q=80",
+    "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&q=80", // Female
+    "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&q=80", // Male
+    "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&q=80", // Male 2
   ];
   
   const garments = [
-    { id: 1, image: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=400&q=80", name: "Yellow Dress" },
-    { id: 2, image: "https://images.unsplash.com/photo-1550639525-c97d455acf70?w=400&q=80", name: "Red Top" },
-    { id: 3, image: "https://images.unsplash.com/photo-1539008835657-9e8e9680c956?w=400&q=80", name: "Denim Jacket" },
-    { id: 4, image: "https://images.unsplash.com/photo-1588117260148-b47818741c74?w=400&q=80", name: "Summer Skirt" },
+    { id: 1, image: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=400&q=80", name: "Yellow Dress", result: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=600&q=80" },
+    { id: 2, image: "https://images.unsplash.com/photo-1550639525-c97d455acf70?w=400&q=80", name: "Red Top", result: "https://images.unsplash.com/photo-1550639525-c97d455acf70?w=600&q=80" },
+    { id: 3, image: "https://images.unsplash.com/photo-1539008835657-9e8e9680c956?w=400&q=80", name: "Denim Jacket", result: "https://images.unsplash.com/photo-1539008835657-9e8e9680c956?w=600&q=80" },
+    { id: 4, image: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&q=80", name: "Blue T-Shirt", result: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=600&q=80" },
+    { id: 5, image: "https://images.unsplash.com/photo-1596755094514-f87e32f85e23?w=400&q=80", name: "White Shirt", result: "https://images.unsplash.com/photo-1596755094514-f87e32f85e23?w=600&q=80" },
+    { id: 6, image: "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=400&q=80", name: "Black Hoodie", result: "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=600&q=80" },
   ];
 
   // Auto transition from step 3 to 4
@@ -34,7 +37,8 @@ export default function TryOn() {
     }
   }, [step]);
 
-  const resultImage = "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=600&q=80"; // Using the dress image as mockup result
+  const selectedGarmentData = garments.find(g => g.id === selectedGarment);
+  const resultImage = selectedGarmentData ? selectedGarmentData.result : "";
 
   return (
     <MobileLayout>

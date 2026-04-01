@@ -6,11 +6,12 @@ import { Plus, Search, Filter } from "lucide-react";
 export default function Wardrobe() {
   const items = [
     { id: 1, type: "top", image: "https://images.unsplash.com/photo-1550639525-c97d455acf70?w=400&q=80", name: "Red Top" },
-    { id: 2, type: "bottom", image: "https://images.unsplash.com/photo-1588117260148-b47818741c74?w=400&q=80", name: "Summer Skirt" },
+    { id: 2, type: "top", image: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&q=80", name: "Blue T-Shirt" },
     { id: 3, type: "top", image: "https://images.unsplash.com/photo-1539008835657-9e8e9680c956?w=400&q=80", name: "Denim Jacket" },
     { id: 4, type: "dress", image: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=400&q=80", name: "Yellow Dress" },
     { id: 5, type: "bottom", image: "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=400&q=80", name: "Blue Jeans" },
-    { id: 6, type: "top", image: "https://images.unsplash.com/photo-1571513722275-4b41940f54b8?w=400&q=80", name: "White Blouse" },
+    { id: 6, type: "top", image: "https://images.unsplash.com/photo-1596755094514-f87e32f85e23?w=400&q=80", name: "White Shirt" },
+    { id: 7, type: "top", image: "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=400&q=80", name: "Black Hoodie" },
   ];
 
   return (
