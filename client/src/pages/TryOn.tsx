@@ -4,12 +4,12 @@ import { useState, useEffect } from "react";
 import { Upload, Sparkles, ChevronLeft, Check, Camera, Image as ImageIcon } from "lucide-react";
 import { useLocation } from "wouter";
 
-import garment1 from "@/assets/images/garment-1.jpg";
-import garment2 from "@/assets/images/garment-2.jpg";
-import garment3 from "@/assets/images/garment-3.jpg";
-import garment4 from "@/assets/images/garment-4.jpg";
-import garment5 from "@/assets/images/garment-5.jpg";
-import garment6 from "@/assets/images/garment-6.jpg";
+import garment1 from "@/assets/images/garment-1-nobg.png";
+import garment2 from "@/assets/images/garment-2-nobg.png";
+import garment3 from "@/assets/images/garment-3-nobg.png";
+import garment4 from "@/assets/images/garment-4-nobg.png";
+import garment5 from "@/assets/images/garment-5-nobg.png";
+import garment6 from "@/assets/images/garment-6-nobg.png";
 
 import result1 from "@/assets/images/result-1.jpg";
 import result2 from "@/assets/images/result-2.jpg";
