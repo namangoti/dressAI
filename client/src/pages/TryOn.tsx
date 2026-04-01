@@ -95,13 +95,15 @@ export default function TryOn() {
               </div>
             </div>
 
-            <Button 
-              className="w-full rounded-full h-14 text-lg mt-auto shadow-lg shadow-primary/25"
-              disabled={!selectedModel}
-              onClick={() => setStep(2)}
-            >
-              Continue
-            </Button>
+            <div className="mt-auto pt-6">
+              <Button 
+                className="w-full rounded-full h-14 text-lg shadow-lg shadow-primary/25"
+                disabled={!selectedModel}
+                onClick={() => setStep(2)}
+              >
+                Continue
+              </Button>
+            </div>
           </div>
         )}
 
