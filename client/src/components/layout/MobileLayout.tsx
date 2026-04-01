@@ -24,12 +24,10 @@ export default function MobileLayout({ children, title }: MobileLayoutProps) {
           <h1 className="text-xl font-bold">{title}</h1>
         </header>
       )}
-      
       <main className="flex-1 overflow-y-auto pb-20">
         {children}
       </main>
-
-      <nav className="absolute bottom-0 w-full bg-background/90 backdrop-blur-xl border-t border-border/50 px-6 py-4 flex justify-between items-center z-20">
+      <nav className="absolute bottom-0 w-full bg-background/90 backdrop-blur-xl border-t border-border/50 px-6 py-4 flex justify-between items-center z-20 font-light">
         {navItems.map((item) => {
           const isActive = location === item.href;
           const Icon = item.icon;

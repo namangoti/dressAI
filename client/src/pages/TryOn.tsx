@@ -19,12 +19,12 @@ export default function TryOn() {
   ];
   
   const garments = [
-    { id: 1, image: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=400&q=80", name: "Yellow Dress" },
-    { id: 2, image: "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=400&q=80", name: "Red Top" },
-    { id: 3, image: "https://images.unsplash.com/photo-1576871337622-98d48d1cf531?w=400&q=80", name: "Denim Jacket" },
-    { id: 4, image: "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=400&q=80", name: "Black T-Shirt" },
-    { id: 5, image: "https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77?w=400&q=80", name: "White Shirt" },
-    { id: 6, image: "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=400&q=80", name: "Grey Hoodie" },
+    { id: 1, image: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=400&q=80", name: "Yellow Dress", result: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=600&q=80" },
+    { id: 2, image: "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=400&q=80", name: "Red Top", result: "https://images.unsplash.com/photo-1550639525-c97d455acf70?w=600&q=80" },
+    { id: 3, image: "https://images.unsplash.com/photo-1576871337622-98d48d1cf531?w=400&q=80", name: "Denim Jacket", result: "https://images.unsplash.com/photo-1539008835657-9e8e9680c956?w=600&q=80" },
+    { id: 4, image: "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=400&q=80", name: "Black T-Shirt", result: "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=600&q=80" },
+    { id: 5, image: "https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77?w=400&q=80", name: "White Shirt", result: "https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77?w=600&q=80" },
+    { id: 6, image: "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=400&q=80", name: "Grey Hoodie", result: "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=600&q=80" },
   ];
 
   // Auto transition from step 3 to 4
@@ -38,13 +38,7 @@ export default function TryOn() {
   }, [step]);
 
   const selectedGarmentData = garments.find(g => g.id === selectedGarment);
-  const resultImage = selectedGarmentData?.name === "Yellow Dress" ? "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=600&q=80" 
-    : selectedGarmentData?.name === "Red Top" ? "https://images.unsplash.com/photo-1550639525-c97d455acf70?w=600&q=80"
-    : selectedGarmentData?.name === "Denim Jacket" ? "https://images.unsplash.com/photo-1539008835657-9e8e9680c956?w=600&q=80"
-    : selectedGarmentData?.name === "Black T-Shirt" ? "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=600&q=80"
-    : selectedGarmentData?.name === "White Shirt" ? "https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77?w=600&q=80"
-    : selectedGarmentData?.name === "Grey Hoodie" ? "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=600&q=80"
-    : "";
+  const resultImage = selectedGarmentData ? selectedGarmentData.result : "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=600&q=80";
 
   return (
     <MobileLayout>
