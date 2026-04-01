@@ -27,14 +27,14 @@ export default function MobileLayout({ children, title }: MobileLayoutProps) {
       <main className="flex-1 overflow-y-auto pb-20">
         {children}
       </main>
-      <nav className="absolute bottom-0 w-full bg-background/90 backdrop-blur-xl border-t border-border/50 px-6 py-4 flex justify-between items-center z-20 font-light">
+      <nav className="absolute bottom-0 w-full bg-background/90 backdrop-blur-xl border-t border-border/50 px-6 py-2 flex justify-between items-center z-20 font-light">
         {navItems.map((item) => {
           const isActive = location === item.href;
           const Icon = item.icon;
           return (
-            <Link key={item.href} href={item.href} className={`flex flex-col items-center gap-1 ${isActive ? "text-primary" : "text-muted-foreground"}`}>
-                <div className={`p-2 rounded-full transition-colors ${isActive ? "bg-primary/10" : "hover:bg-muted"}`}>
-                  <Icon size={24} strokeWidth={isActive ? 2.5 : 2} />
+            <Link key={item.href} href={item.href} className={`flex flex-col items-center gap-0.5 ${isActive ? "text-primary" : "text-muted-foreground"}`}>
+                <div className={`p-1.5 rounded-full transition-colors ${isActive ? "bg-primary/10" : "hover:bg-muted"}`}>
+                  <Icon size={20} strokeWidth={isActive ? 2.5 : 2} />
                 </div>
                 <span className="text-[10px] font-medium">{item.label}</span>
             </Link>
