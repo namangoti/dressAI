@@ -34,13 +34,11 @@ export default function MobileLayout({ children, title }: MobileLayoutProps) {
           const isActive = location === item.href;
           const Icon = item.icon;
           return (
-            <Link key={item.href} href={item.href}>
-              <a className={`flex flex-col items-center gap-1 ${isActive ? "text-primary" : "text-muted-foreground"}`}>
+            <Link key={item.href} href={item.href} className={`flex flex-col items-center gap-1 ${isActive ? "text-primary" : "text-muted-foreground"}`}>
                 <div className={`p-2 rounded-full transition-colors ${isActive ? "bg-primary/10" : "hover:bg-muted"}`}>
                   <Icon size={24} strokeWidth={isActive ? 2.5 : 2} />
                 </div>
                 <span className="text-[10px] font-medium">{item.label}</span>
-              </a>
             </Link>
           );
         })}

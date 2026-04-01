@@ -121,7 +121,7 @@ export default function TryOn() {
 
             <div className="flex-1">
               <h3 className="font-semibold mb-4 text-lg">Choose from Wardrobe</h3>
-              <div className="grid grid-cols-2 gap-4 pb-4">
+              <div className="grid grid-cols-2 gap-4 pb-4 overflow-y-auto">
                 {garments.map((g) => (
                   <div 
                     key={g.id} 
@@ -143,7 +143,7 @@ export default function TryOn() {
             </div>
 
             <Button 
-              className="w-full rounded-full h-14 text-lg mt-auto shadow-lg shadow-primary/25 gap-2"
+              className="w-full rounded-full h-14 text-lg mt-auto shadow-lg shadow-primary/25 gap-2 shrink-0"
               disabled={!selectedGarment}
               onClick={() => setStep(3)}
             >
