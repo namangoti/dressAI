@@ -112,9 +112,9 @@ export default function TryOn() {
         )}
 
         {step === 2 && (
-          <div className="flex-1 flex flex-col min-h-0">
+          <div className="flex-1 flex flex-col min-h-0 relative">
             {/* Show selected model small */}
-            <div className="flex gap-4 items-center bg-secondary/50 p-3 rounded-2xl border border-border/50 shrink-0 mb-4">
+            <div className="flex gap-4 items-center bg-secondary/50 p-3 rounded-2xl border border-border/50 shrink-0 mb-4 z-10">
               <div className="w-12 h-16 rounded-lg overflow-hidden">
                 <img src={selectedModel || ""} className="w-full h-full object-cover" alt="Selected" />
               </div>
@@ -125,9 +125,9 @@ export default function TryOn() {
               <Button variant="ghost" size="sm" onClick={() => setStep(1)} className="text-xs">Change</Button>
             </div>
 
-            <div className="flex-1 min-h-0 flex flex-col">
+            <div className="flex-1 min-h-0 flex flex-col z-0">
               <h3 className="font-semibold mb-3 text-base shrink-0">Choose from Wardrobe</h3>
-              <div className="flex-1 overflow-y-auto pr-2 pb-4 -mr-2">
+              <div className="flex-1 overflow-y-auto pr-2 pb-24 -mr-2">
                 <div className="grid grid-cols-2 gap-3">
                   {garments.map((g) => (
                     <div 
@@ -150,7 +150,7 @@ export default function TryOn() {
               </div>
             </div>
 
-            <div className="shrink-0 pt-4 pb-4">
+            <div className="absolute bottom-0 left-0 right-0 pt-6 pb-2 bg-gradient-to-t from-background via-background/95 to-transparent z-20">
               <Button 
                 className="w-full rounded-full h-12 text-base shadow-lg shadow-primary/25 gap-2"
                 disabled={!selectedGarment}
