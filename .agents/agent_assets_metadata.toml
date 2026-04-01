@@ -1,0 +1,74 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "DH2-EdXjdIGnlmt_Nlfkr"
+uri = "file://client/src/assets/images/garment-1.jpg"
+type = "image"
+title = "yellow summer dress ecommerce product shot isolated on white background"
+
+[[outputs]]
+id = "xyNy66Kk9ke9xsk1yAflG"
+uri = "file://client/src/assets/images/garment-2.jpg"
+type = "image"
+title = "red top shirt ecommerce product shot isolated on white background"
+
+[[outputs]]
+id = "vRjkI4tmuOk1drQ_0E1ty"
+uri = "file://client/src/assets/images/garment-3.jpg"
+type = "image"
+title = "blue denim jacket ecommerce product shot isolated on white background"
+
+[[outputs]]
+id = "H7b_nSVgcE5TGzPn-6yWu"
+uri = "file://client/src/assets/images/garment-4.jpg"
+type = "image"
+title = "black t-shirt ecommerce product shot isolated on white background"
+
+[[outputs]]
+id = "iVCBug_8_yL5gxdD8gP1w"
+uri = "file://client/src/assets/images/garment-5.jpg"
+type = "image"
+title = "white button down shirt ecommerce product shot isolated on white background"
+
+[[outputs]]
+id = "oJW4_NMlcs7gLvfE77Eeb"
+uri = "file://client/src/assets/images/garment-6.jpg"
+type = "image"
+title = "grey hoodie ecommerce product shot isolated on white background"
+
+[[outputs]]
+id = "p9puss_zwGcUPvvh4Wi_l"
+uri = "file://client/src/assets/images/result-1.jpg"
+type = "image"
+title = "beautiful woman wearing yellow summer dress fashion photography"
+
+[[outputs]]
+id = "9lMeeSpXENT63C_9tO6sb"
+uri = "file://client/src/assets/images/result-2.jpg"
+type = "image"
+title = "beautiful woman wearing red top fashion photography"
+
+[[outputs]]
+id = "ETWSJrbCqZCib4W4gD-XW"
+uri = "file://client/src/assets/images/result-3.jpg"
+type = "image"
+title = "person wearing blue denim jacket fashion photography"
+
+[[outputs]]
+id = "bK1Hb4dyu80VY2tiUZvCE"
+uri = "file://client/src/assets/images/result-4.jpg"
+type = "image"
+title = "handsome man wearing black t-shirt fashion photography"
+
+[[outputs]]
+id = "efEsgQaV9SVEWKa4y7Zc5"
+uri = "file://client/src/assets/images/result-5.jpg"
+type = "image"
+title = "handsome man wearing white button down shirt fashion photography"
+
+[[outputs]]
+id = "ibMl3mlItEID6daA1wXRM"
+uri = "file://client/src/assets/images/result-6.jpg"
+type = "image"
+title = "handsome man wearing grey hoodie fashion photography"

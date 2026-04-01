@@ -4,6 +4,20 @@ import { useState, useEffect } from "react";
 import { Upload, Sparkles, ChevronLeft, Check, Camera, Image as ImageIcon } from "lucide-react";
 import { useLocation } from "wouter";
 
+import garment1 from "@/assets/images/garment-1.jpg";
+import garment2 from "@/assets/images/garment-2.jpg";
+import garment3 from "@/assets/images/garment-3.jpg";
+import garment4 from "@/assets/images/garment-4.jpg";
+import garment5 from "@/assets/images/garment-5.jpg";
+import garment6 from "@/assets/images/garment-6.jpg";
+
+import result1 from "@/assets/images/result-1.jpg";
+import result2 from "@/assets/images/result-2.jpg";
+import result3 from "@/assets/images/result-3.jpg";
+import result4 from "@/assets/images/result-4.jpg";
+import result5 from "@/assets/images/result-5.jpg";
+import result6 from "@/assets/images/result-6.jpg";
+
 export default function TryOn() {
   const [, setLocation] = useLocation();
   const [step, setStep] = useState(1); // 1: photo, 2: garment, 3: generating, 4: result
@@ -19,12 +33,12 @@ export default function TryOn() {
   ];
   
   const garments = [
-    { id: 1, image: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=400&q=80", name: "Yellow Dress", result: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=600&q=80" },
-    { id: 2, image: "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=400&q=80", name: "Red Top", result: "https://images.unsplash.com/photo-1550639525-c97d455acf70?w=600&q=80" },
-    { id: 3, image: "https://images.unsplash.com/photo-1576871337622-98d48d1cf531?w=400&q=80", name: "Denim Jacket", result: "https://images.unsplash.com/photo-1539008835657-9e8e9680c956?w=600&q=80" },
-    { id: 4, image: "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=400&q=80", name: "Black T-Shirt", result: "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=600&q=80" },
-    { id: 5, image: "https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77?w=400&q=80", name: "White Shirt", result: "https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77?w=600&q=80" },
-    { id: 6, image: "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=400&q=80", name: "Grey Hoodie", result: "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=600&q=80" },
+    { id: 1, image: garment1, name: "Yellow Dress", result: result1 },
+    { id: 2, image: garment2, name: "Red Top", result: result2 },
+    { id: 3, image: garment3, name: "Denim Jacket", result: result3 },
+    { id: 4, image: garment4, name: "Black T-Shirt", result: result4 },
+    { id: 5, image: garment5, name: "White Shirt", result: result5 },
+    { id: 6, image: garment6, name: "Grey Hoodie", result: result6 },
   ];
 
   // Auto transition from step 3 to 4

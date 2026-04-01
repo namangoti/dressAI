@@ -3,15 +3,21 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Search, Filter } from "lucide-react";
 
+import garment1 from "@/assets/images/garment-1.jpg";
+import garment2 from "@/assets/images/garment-2.jpg";
+import garment3 from "@/assets/images/garment-3.jpg";
+import garment4 from "@/assets/images/garment-4.jpg";
+import garment5 from "@/assets/images/garment-5.jpg";
+import garment6 from "@/assets/images/garment-6.jpg";
+
 export default function Wardrobe() {
   const items = [
-    { id: 1, type: "top", image: "https://images.unsplash.com/photo-1550639525-c97d455acf70?w=400&q=80", name: "Red Top" },
-    { id: 2, type: "top", image: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&q=80", name: "Blue T-Shirt" },
-    { id: 3, type: "top", image: "https://images.unsplash.com/photo-1539008835657-9e8e9680c956?w=400&q=80", name: "Denim Jacket" },
-    { id: 4, type: "dress", image: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=400&q=80", name: "Yellow Dress" },
-    { id: 5, type: "bottom", image: "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=400&q=80", name: "Blue Jeans" },
-    { id: 6, type: "top", image: "https://images.unsplash.com/photo-1596755094514-f87e32f85e23?w=400&q=80", name: "White Shirt" },
-    { id: 7, type: "top", image: "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=400&q=80", name: "Black Hoodie" },
+    { id: 1, type: "dress", image: garment1, name: "Yellow Dress" },
+    { id: 2, type: "top", image: garment2, name: "Red Top" },
+    { id: 3, type: "top", image: garment3, name: "Denim Jacket" },
+    { id: 4, type: "top", image: garment4, name: "Black T-Shirt" },
+    { id: 5, type: "top", image: garment5, name: "White Shirt" },
+    { id: 6, type: "top", image: garment6, name: "Grey Hoodie" },
   ];
 
   return (
