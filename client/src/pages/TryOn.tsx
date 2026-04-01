@@ -38,9 +38,9 @@ export default function TryOn() {
 
   return (
     <MobileLayout>
-      <div className="p-6 h-full flex flex-col min-h-screen">
+      <div className="p-6 h-full flex flex-col">
         {/* Header */}
-        <header className="flex items-center gap-4 pt-2 mb-6">
+        <header className="flex items-center gap-4 pt-2 mb-4 shrink-0">
           <Button variant="ghost" size="icon" className="rounded-full shrink-0" onClick={() => step > 1 ? setStep(step - 1) : setLocation("/")}>
             <ChevronLeft size={24} />
           </Button>
@@ -57,37 +57,37 @@ export default function TryOn() {
 
         {/* Content based on step */}
         {step === 1 && (
-          <div className="flex-1 space-y-8 flex flex-col pb-6">
-            <div className="flex-1 min-h-[250px] border-2 border-dashed border-border rounded-3xl flex flex-col items-center justify-center p-8 text-center bg-secondary/30">
-              <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                <Upload size={32} className="text-primary" />
+          <div className="flex-1 flex flex-col min-h-0">
+            <div className="flex-1 min-h-[120px] max-h-[200px] border-2 border-dashed border-border rounded-3xl flex flex-col items-center justify-center p-4 text-center bg-secondary/30 mb-4 shrink-0">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+                <Upload size={20} className="text-primary" />
               </div>
-              <h3 className="font-bold text-lg mb-2">Upload a photo</h3>
-              <p className="text-sm text-muted-foreground mb-6 max-w-[250px]">For best results, use a full-body photo with good lighting and simple background.</p>
+              <h3 className="font-bold text-sm mb-1">Upload a photo</h3>
+              <p className="text-xs text-muted-foreground mb-3 max-w-[220px]">For best results, use a full-body photo with good lighting.</p>
               
-              <div className="flex gap-4 w-full">
-                <Button variant="outline" className="flex-1 rounded-2xl gap-2 h-12 border-primary/20 hover:bg-primary/5">
-                  <Camera size={18} /> Camera
+              <div className="flex gap-2 w-full">
+                <Button variant="outline" className="flex-1 rounded-2xl gap-1.5 h-9 border-primary/20 hover:bg-primary/5 text-xs">
+                  <Camera size={14} /> Camera
                 </Button>
-                <Button variant="outline" className="flex-1 rounded-2xl gap-2 h-12 border-primary/20 hover:bg-primary/5">
-                  <ImageIcon size={18} /> Gallery
+                <Button variant="outline" className="flex-1 rounded-2xl gap-1.5 h-9 border-primary/20 hover:bg-primary/5 text-xs">
+                  <ImageIcon size={14} /> Gallery
                 </Button>
               </div>
             </div>
 
-            <div>
-              <h3 className="font-semibold mb-4 text-lg">Or use a model</h3>
-              <div className="flex gap-4 overflow-x-auto hide-scrollbar -mx-6 px-6 pb-2">
+            <div className="shrink-0 mb-4">
+              <h3 className="font-semibold mb-2 text-sm">Or use a model</h3>
+              <div className="flex gap-3 overflow-x-auto hide-scrollbar -mx-6 px-6 pb-2">
                 {models.map((m, i) => (
                   <div 
                     key={i} 
-                    className={`relative w-32 h-44 rounded-2xl overflow-hidden shrink-0 cursor-pointer border-2 transition-all ${selectedModel === m ? 'border-primary ring-2 ring-primary/20 ring-offset-2 ring-offset-background' : 'border-transparent'}`}
+                    className={`relative w-20 h-28 rounded-xl overflow-hidden shrink-0 cursor-pointer border-2 transition-all ${selectedModel === m ? 'border-primary ring-2 ring-primary/20 ring-offset-1 ring-offset-background' : 'border-transparent'}`}
                     onClick={() => setSelectedModel(m)}
                   >
                     <img src={m} alt={`Model ${i+1}`} className="w-full h-full object-cover" />
                     {selectedModel === m && (
-                      <div className="absolute top-2 right-2 bg-primary text-white rounded-full p-1 shadow-md">
-                        <Check size={14} />
+                      <div className="absolute top-1.5 right-1.5 bg-primary text-white rounded-full p-0.5 shadow-md">
+                        <Check size={12} />
                       </div>
                     )}
                   </div>
@@ -95,9 +95,9 @@ export default function TryOn() {
               </div>
             </div>
 
-            <div className="mt-auto pt-6">
+            <div className="mt-auto pt-2 shrink-0 pb-4">
               <Button 
-                className="w-full rounded-full h-14 text-lg shadow-lg shadow-primary/25"
+                className="w-full rounded-full h-12 text-base shadow-lg shadow-primary/25"
                 disabled={!selectedModel}
                 onClick={() => setStep(2)}
               >
@@ -108,9 +108,9 @@ export default function TryOn() {
         )}
 
         {step === 2 && (
-          <div className="flex-1 flex flex-col space-y-6 pb-6">
+          <div className="flex-1 flex flex-col min-h-0">
             {/* Show selected model small */}
-            <div className="flex gap-4 items-center bg-secondary/50 p-3 rounded-2xl border border-border/50">
+            <div className="flex gap-4 items-center bg-secondary/50 p-3 rounded-2xl border border-border/50 shrink-0 mb-4">
               <div className="w-12 h-16 rounded-lg overflow-hidden">
                 <img src={selectedModel || ""} className="w-full h-full object-cover" alt="Selected" />
               </div>
@@ -121,37 +121,41 @@ export default function TryOn() {
               <Button variant="ghost" size="sm" onClick={() => setStep(1)} className="text-xs">Change</Button>
             </div>
 
-            <div className="flex-1">
-              <h3 className="font-semibold mb-4 text-lg">Choose from Wardrobe</h3>
-              <div className="grid grid-cols-2 gap-4 pb-4 overflow-y-auto">
-                {garments.map((g) => (
-                  <div 
-                    key={g.id} 
-                    className={`relative rounded-2xl overflow-hidden cursor-pointer border-2 transition-all aspect-[3/4] ${selectedGarment === g.id ? 'border-primary ring-2 ring-primary/20 ring-offset-2 ring-offset-background' : 'border-transparent'}`}
-                    onClick={() => setSelectedGarment(g.id)}
-                  >
-                    <img src={g.image} alt={g.name} className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex items-end p-3">
-                      <span className="text-white font-medium text-sm">{g.name}</span>
-                    </div>
-                    {selectedGarment === g.id && (
-                      <div className="absolute top-2 right-2 bg-primary text-white rounded-full p-1 shadow-md">
-                        <Check size={14} />
+            <div className="flex-1 min-h-0 flex flex-col">
+              <h3 className="font-semibold mb-3 text-base shrink-0">Choose from Wardrobe</h3>
+              <div className="flex-1 overflow-y-auto pr-2 pb-4 -mr-2">
+                <div className="grid grid-cols-2 gap-3">
+                  {garments.map((g) => (
+                    <div 
+                      key={g.id} 
+                      className={`relative rounded-2xl overflow-hidden cursor-pointer border-2 transition-all aspect-[3/4] ${selectedGarment === g.id ? 'border-primary ring-2 ring-primary/20 ring-offset-2 ring-offset-background' : 'border-transparent'}`}
+                      onClick={() => setSelectedGarment(g.id)}
+                    >
+                      <img src={g.image} alt={g.name} className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex items-end p-2">
+                        <span className="text-white font-medium text-xs">{g.name}</span>
                       </div>
-                    )}
-                  </div>
-                ))}
+                      {selectedGarment === g.id && (
+                        <div className="absolute top-1.5 right-1.5 bg-primary text-white rounded-full p-0.5 shadow-md">
+                          <Check size={12} />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 
-            <Button 
-              className="w-full rounded-full h-14 text-lg mt-auto shadow-lg shadow-primary/25 gap-2 shrink-0"
-              disabled={!selectedGarment}
-              onClick={() => setStep(3)}
-            >
-              <Sparkles size={20} />
-              Try it on
-            </Button>
+            <div className="shrink-0 pt-4 pb-4">
+              <Button 
+                className="w-full rounded-full h-12 text-base shadow-lg shadow-primary/25 gap-2"
+                disabled={!selectedGarment}
+                onClick={() => setStep(3)}
+              >
+                <Sparkles size={18} />
+                Try it on
+              </Button>
+            </div>
           </div>
         )}
 
