@@ -47,13 +47,6 @@ export default function Wardrobe() {
           
           <TabsContent value="all" className="mt-0">
             <div className="grid grid-cols-2 gap-4 pb-4">
-              <div className="aspect-square rounded-3xl border-2 border-dashed border-border flex flex-col items-center justify-center text-muted-foreground gap-3 cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors">
-                <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center">
-                  <Plus size={24} />
-                </div>
-                <span className="font-medium">Add Item</span>
-              </div>
-              
               {items.map((item) => (
                 <div key={item.id} className="relative rounded-3xl overflow-hidden aspect-square border border-border/50 shadow-sm group">
                   <img src={item.image} alt={item.name} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
