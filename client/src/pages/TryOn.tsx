@@ -1,7 +1,7 @@
 import MobileLayout from "@/components/layout/MobileLayout";
 import { Button } from "@/components/ui/button";
-import { useState, useEffect } from "react";
-import { Upload, Sparkles, ChevronLeft, Check, Camera, Image as ImageIcon } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Upload, Sparkles, ChevronLeft, Check, Camera, Image as ImageIcon, RotateCcw, Share2, Heart } from "lucide-react";
 import { useLocation } from "wouter";
 
 import garment1 from "@/assets/images/tshirt-black.png";
@@ -11,320 +11,433 @@ import garment4 from "@/assets/images/tshirt-red.png";
 import garment5 from "@/assets/images/tshirt-blue.png";
 import garment6 from "@/assets/images/tshirt-graphic.png";
 
-import result1 from "@/assets/images/result-black.png";
-import result2 from "@/assets/images/result-white.png";
-import result3 from "@/assets/images/result-grey.png";
-import result4 from "@/assets/images/result-red.png";
-import result5 from "@/assets/images/result-red.png"; // Fallback since limit reached
-import result6 from "@/assets/images/result-black.png"; // Fallback since limit reached
+const GARMENTS = [
+  { id: 1, image: garment1, name: "Black T-Shirt", price: "₹599", tag: "Bestseller" },
+  { id: 2, image: garment2, name: "White T-Shirt", price: "₹499", tag: "New" },
+  { id: 3, image: garment3, name: "Grey T-Shirt", price: "₹549", tag: "" },
+  { id: 4, image: garment4, name: "Red T-Shirt", price: "₹649", tag: "Hot" },
+  { id: 5, image: garment5, name: "Blue T-Shirt", price: "₹599", tag: "" },
+  { id: 6, image: garment6, name: "Graphic T-Shirt", price: "₹799", tag: "Trending" },
+];
+
+type Gender = "man" | "woman" | "child";
+type BodyType = "slim" | "regular" | "athletic";
+type SkinTone = "fair" | "light" | "medium" | "tan" | "dark";
+
+interface AvatarConfig {
+  url: string;
+  // garment overlay calibration: where on the avatar the chest begins (0-1)
+  torsoTop: number;
+  // width of garment relative to avatar width (0-1)
+  garmentWidthRatio: number;
+  label: string;
+}
+
+// Full-body standing model avatars with torso calibration
+const AVATARS: Record<Gender, Record<BodyType, AvatarConfig>> = {
+  man: {
+    slim: {
+      url: "https://images.unsplash.com/photo-1552374196-1ab2a1c593e8?w=500&q=80",
+      torsoTop: 0.20,
+      garmentWidthRatio: 0.70,
+      label: "Slim Male",
+    },
+    regular: {
+      url: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=500&q=80",
+      torsoTop: 0.20,
+      garmentWidthRatio: 0.74,
+      label: "Regular Male",
+    },
+    athletic: {
+      url: "https://images.unsplash.com/photo-1583195764036-6dc248ac07d9?w=500&q=80",
+      torsoTop: 0.19,
+      garmentWidthRatio: 0.78,
+      label: "Athletic Male",
+    },
+  },
+  woman: {
+    slim: {
+      url: "https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=500&q=80",
+      torsoTop: 0.21,
+      garmentWidthRatio: 0.66,
+      label: "Slim Female",
+    },
+    regular: {
+      url: "https://images.unsplash.com/photo-1617922001439-4a2e6562f328?w=500&q=80",
+      torsoTop: 0.21,
+      garmentWidthRatio: 0.70,
+      label: "Regular Female",
+    },
+    athletic: {
+      url: "https://images.unsplash.com/photo-1594381898411-846e7d193883?w=500&q=80",
+      torsoTop: 0.20,
+      garmentWidthRatio: 0.72,
+      label: "Athletic Female",
+    },
+  },
+  child: {
+    slim: {
+      url: "https://images.unsplash.com/photo-1504439904031-93ded9f93e4e?w=500&q=80",
+      torsoTop: 0.22,
+      garmentWidthRatio: 0.65,
+      label: "Child",
+    },
+    regular: {
+      url: "https://images.unsplash.com/photo-1504439904031-93ded9f93e4e?w=500&q=80",
+      torsoTop: 0.22,
+      garmentWidthRatio: 0.65,
+      label: "Child",
+    },
+    athletic: {
+      url: "https://images.unsplash.com/photo-1504439904031-93ded9f93e4e?w=500&q=80",
+      torsoTop: 0.22,
+      garmentWidthRatio: 0.65,
+      label: "Child",
+    },
+  },
+};
+
+const SKIN_TONES: Record<SkinTone, string> = {
+  fair: "#FDDBB4",
+  light: "#E8B88A",
+  medium: "#C68642",
+  tan: "#A0522D",
+  dark: "#4A2912",
+};
 
 export default function TryOn() {
   const [, setLocation] = useLocation();
-  const [step, setStep] = useState(1); // 1: photo, 2: garment, 3: generating, 4: result
-  
-  const [selectedModel, setSelectedModel] = useState<string | null>(null);
-  const [selectedGarment, setSelectedGarment] = useState<number | null>(null);
+  const [step, setStep] = useState<1 | 2>(1);
+
+  // Avatar config
+  const [gender, setGender] = useState<Gender>("man");
+  const [bodyType, setBodyType] = useState<BodyType>("regular");
+  const [skinTone, setSkinTone] = useState<SkinTone>("medium");
+  const [uploadedPhoto, setUploadedPhoto] = useState<string | null>(null);
+
+  // Try-on state
+  const [selectedGarmentId, setSelectedGarmentId] = useState<number>(1);
   const [isSaved, setIsSaved] = useState(false);
-  
-  // Mock data
-  const models = [
-    "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&q=80", // Male
-    "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&q=80", // Male 2
-    "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&q=80", // Female
-  ];
-  
-  const garments = [
-    { id: 1, image: garment1, name: "Black T-Shirt", result: result1 },
-    { id: 2, image: garment2, name: "White T-Shirt", result: result2 },
-    { id: 3, image: garment3, name: "Grey T-Shirt", result: result3 },
-    { id: 4, image: garment4, name: "Red T-Shirt", result: result4 },
-    { id: 5, image: garment5, name: "Blue T-Shirt", result: result5 },
-    { id: 6, image: garment6, name: "Graphic T-Shirt", result: result6 },
-  ];
 
-  // Auto transition from step 3 to 4
-  useEffect(() => {
-    if (step === 3) {
-      const timer = setTimeout(() => {
-        setStep(4);
-        setIsSaved(false);
-      }, 2500);
-      return () => clearTimeout(timer);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const avatarImgRef = useRef<HTMLImageElement | null>(null);
+  const garmentImgRef = useRef<HTMLImageElement | null>(null);
+
+  const avatarConfig = AVATARS[gender][bodyType];
+  const avatarUrl = uploadedPhoto || avatarConfig.url;
+  const selectedGarment = GARMENTS.find(g => g.id === selectedGarmentId)!;
+
+  // Draw composited image on canvas
+  const drawCanvas = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const avatarImg = avatarImgRef.current;
+    const garmentImg = garmentImgRef.current;
+    if (!avatarImg || !garmentImg) return;
+    if (!avatarImg.complete || !garmentImg.complete) return;
+
+    const W = canvas.width;
+    const H = canvas.height;
+
+    // Draw avatar (cover fill)
+    const avatarAspect = avatarImg.naturalWidth / avatarImg.naturalHeight;
+    const canvasAspect = W / H;
+    let sx = 0, sy = 0, sw = avatarImg.naturalWidth, sh = avatarImg.naturalHeight;
+    if (avatarAspect > canvasAspect) {
+      sw = avatarImg.naturalHeight * canvasAspect;
+      sx = (avatarImg.naturalWidth - sw) / 2;
+    } else {
+      sh = avatarImg.naturalWidth / canvasAspect;
+      sy = 0; // align to top for portrait shots
     }
-  }, [step]);
+    ctx.drawImage(avatarImg, sx, sy, sw, sh, 0, 0, W, H);
 
-  const selectedGarmentData = garments.find(g => g.id === selectedGarment);
-  const resultImage = selectedGarmentData ? selectedGarmentData.result : "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=600&q=80";
+    // Draw garment on torso
+    const config = uploadedPhoto
+      ? { torsoTop: 0.27, garmentWidthRatio: 0.72 }
+      : avatarConfig;
+
+    const gW = W * config.garmentWidthRatio;
+    const gAspect = garmentImg.naturalWidth / garmentImg.naturalHeight;
+    const gH = gW / gAspect;
+    const gX = (W - gW) / 2;
+    const gY = H * config.torsoTop;
+
+    ctx.drawImage(garmentImg, gX, gY, gW, gH);
+  }, [avatarConfig, uploadedPhoto]);
+
+  // Load avatar image
+  useEffect(() => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.src = avatarUrl;
+    img.onload = () => {
+      avatarImgRef.current = img;
+      drawCanvas();
+    };
+    avatarImgRef.current = img.complete ? img : null;
+  }, [avatarUrl, drawCanvas]);
+
+  // Load garment image
+  useEffect(() => {
+    const img = new Image();
+    img.src = selectedGarment.image;
+    img.onload = () => {
+      garmentImgRef.current = img;
+      drawCanvas();
+    };
+    if (img.complete) {
+      garmentImgRef.current = img;
+      drawCanvas();
+    }
+  }, [selectedGarment.image, drawCanvas]);
+
+  // Redraw when canvas mounts (step 2)
+  useEffect(() => {
+    if (step === 2) {
+      setTimeout(drawCanvas, 50);
+    }
+  }, [step, drawCanvas]);
 
   return (
     <MobileLayout>
-      <div className="p-6 h-full flex flex-col">
-        {/* Header */}
-        <header className="flex items-center gap-4 pt-2 mb-4 shrink-0">
-          <Button variant="ghost" size="icon" className="rounded-full shrink-0" onClick={() => step > 1 ? setStep(step - 1) : setLocation("/")}>
-            <ChevronLeft size={24} />
-          </Button>
-          <div className="flex-1">
-            <h1 className="text-xl font-bold text-center">
-              {step === 1 && "Choose Photo"}
-              {step === 2 && "Select Outfit"}
-              {step === 3 && "Creating Magic..."}
-              {step === 4 && "Your FitCheck"}
-            </h1>
-          </div>
-          <div className="w-10 shrink-0" /> {/* Spacer */}
-        </header>
+      <div className="h-full flex flex-col">
 
-        {/* Content based on step */}
+        {/* ── STEP 1: Avatar Setup ── */}
         {step === 1 && (
-          <div className="flex-1 flex flex-col min-h-0">
-            <div className="flex-1 min-h-[120px] max-h-[200px] border-2 border-dashed border-border rounded-3xl flex flex-col items-center justify-center p-4 text-center bg-secondary/30 mb-4 shrink-0">
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
-                <Upload size={20} className="text-primary" />
+          <div className="flex-1 flex flex-col overflow-y-auto">
+            <header className="flex items-center gap-3 px-5 pt-4 pb-3 shrink-0">
+              <Button variant="ghost" size="icon" className="rounded-full" onClick={() => setLocation("/")}>
+                <ChevronLeft size={22} />
+              </Button>
+              <div className="flex-1">
+                <h1 className="text-lg font-bold">Build Your Avatar</h1>
+                <p className="text-xs text-muted-foreground">Set your body profile for the best fit</p>
               </div>
-              <h3 className="font-bold text-sm mb-1">Upload a photo</h3>
-              <p className="text-xs text-muted-foreground mb-3 max-w-[220px]">For best results, use a full-body photo with good lighting.</p>
-              
-              <div className="flex gap-2 w-full">
-                <label className="flex-1 flex items-center justify-center rounded-2xl gap-1.5 h-9 border border-primary/20 hover:bg-primary/5 text-xs cursor-pointer bg-background shadow-sm">
-                  <Camera size={14} /> Camera
-                  <input 
-                    type="file" 
-                    accept="image/*" 
-                    capture="environment"
-                    className="hidden"
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files[0]) {
+            </header>
+
+            <div className="flex-1 px-5 pb-6 space-y-6">
+              {/* Upload your own photo */}
+              <div>
+                <h3 className="text-sm font-semibold mb-2">Your Photo</h3>
+                <div className="flex gap-2">
+                  <label className="flex-1 flex items-center justify-center gap-2 h-11 rounded-2xl border-2 border-dashed border-primary/30 bg-primary/5 cursor-pointer text-sm font-medium text-primary hover:bg-primary/10 transition-colors">
+                    <Camera size={15} /> Camera
+                    <input type="file" accept="image/*" capture="environment" className="hidden"
+                      onChange={e => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
                         const reader = new FileReader();
-                        reader.onload = (event) => {
-                          setSelectedModel(event.target?.result as string);
-                        };
-                        reader.readAsDataURL(e.target.files[0]);
-                      }
-                    }}
-                  />
-                </label>
-                <label className="flex-1 flex items-center justify-center rounded-2xl gap-1.5 h-9 border border-primary/20 hover:bg-primary/5 text-xs cursor-pointer bg-background shadow-sm">
-                  <ImageIcon size={14} /> Gallery
-                  <input 
-                    type="file" 
-                    accept="image/*" 
-                    className="hidden"
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files[0]) {
+                        reader.onload = ev => setUploadedPhoto(ev.target?.result as string);
+                        reader.readAsDataURL(file);
+                      }} />
+                  </label>
+                  <label className="flex-1 flex items-center justify-center gap-2 h-11 rounded-2xl border-2 border-dashed border-primary/30 bg-primary/5 cursor-pointer text-sm font-medium text-primary hover:bg-primary/10 transition-colors">
+                    <ImageIcon size={15} /> Gallery
+                    <input type="file" accept="image/*" className="hidden"
+                      onChange={e => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
                         const reader = new FileReader();
-                        reader.onload = (event) => {
-                          setSelectedModel(event.target?.result as string);
-                        };
-                        reader.readAsDataURL(e.target.files[0]);
-                      }
-                    }}
-                  />
-                </label>
+                        reader.onload = ev => setUploadedPhoto(ev.target?.result as string);
+                        reader.readAsDataURL(file);
+                      }} />
+                  </label>
+                  {uploadedPhoto && (
+                    <button onClick={() => setUploadedPhoto(null)} className="h-11 w-11 rounded-2xl border-2 border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
+                      <RotateCcw size={15} />
+                    </button>
+                  )}
+                </div>
+                {uploadedPhoto && (
+                  <div className="mt-2 flex items-center gap-2 text-xs text-green-600 font-medium">
+                    <Check size={13} /> Photo uploaded — using your photo as avatar
+                  </div>
+                )}
               </div>
+
+              {/* Gender */}
+              {!uploadedPhoto && (
+                <>
+                  <div>
+                    <h3 className="text-sm font-semibold mb-2">Gender</h3>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(["man", "woman", "child"] as Gender[]).map(g => (
+                        <button
+                          key={g}
+                          onClick={() => { setGender(g); if (g === "child") setBodyType("regular"); }}
+                          className={`py-3 rounded-2xl text-sm font-medium capitalize border-2 transition-all ${gender === g ? "border-primary bg-primary text-white" : "border-border bg-secondary/40 text-foreground"}`}
+                        >
+                          {g === "man" ? "👨 Man" : g === "woman" ? "👩 Woman" : "👦 Child"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Body Type */}
+                  {gender !== "child" && (
+                    <div>
+                      <h3 className="text-sm font-semibold mb-2">Body Type</h3>
+                      <div className="grid grid-cols-3 gap-2">
+                        {(["slim", "regular", "athletic"] as BodyType[]).map(bt => (
+                          <button
+                            key={bt}
+                            onClick={() => setBodyType(bt)}
+                            className={`py-3 rounded-2xl text-sm font-medium capitalize border-2 transition-all ${bodyType === bt ? "border-primary bg-primary text-white" : "border-border bg-secondary/40 text-foreground"}`}
+                          >
+                            {bt === "slim" ? "🪶" : bt === "regular" ? "🧍" : "💪"}<br />
+                            <span className="text-xs">{bt}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Skin Tone */}
+                  <div>
+                    <h3 className="text-sm font-semibold mb-2">Skin Tone</h3>
+                    <div className="flex gap-3">
+                      {(Object.entries(SKIN_TONES) as [SkinTone, string][]).map(([tone, color]) => (
+                        <button
+                          key={tone}
+                          onClick={() => setSkinTone(tone)}
+                          className={`w-10 h-10 rounded-full border-4 transition-all ${skinTone === tone ? "border-primary scale-110 shadow-lg" : "border-transparent"}`}
+                          style={{ backgroundColor: color }}
+                          title={tone}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Avatar preview */}
+                  <div>
+                    <h3 className="text-sm font-semibold mb-2">Your Avatar Preview</h3>
+                    <div className="flex gap-3 overflow-x-auto hide-scrollbar -mx-5 px-5 pb-1">
+                      {(Object.entries(AVATARS[gender]) as [BodyType, AvatarConfig][]).map(([bt, cfg]) => (
+                        <div
+                          key={bt}
+                          onClick={() => setBodyType(bt)}
+                          className={`relative w-20 h-28 rounded-2xl overflow-hidden shrink-0 cursor-pointer border-2 transition-all ${bodyType === bt ? "border-primary ring-2 ring-primary/20" : "border-transparent opacity-60"}`}
+                        >
+                          <img src={cfg.url} alt={cfg.label} className="w-full h-full object-cover object-top" />
+                          {bodyType === bt && (
+                            <div className="absolute top-1 right-1 bg-primary rounded-full p-0.5">
+                              <Check size={10} className="text-white" />
+                            </div>
+                          )}
+                          <div className="absolute bottom-0 inset-x-0 bg-black/50 text-white text-[9px] text-center py-0.5 capitalize">{bt}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
-            <div className="shrink-0 mb-4">
-              <h3 className="font-semibold mb-2 text-sm">Or use a model</h3>
-              <div className="flex gap-3 overflow-x-auto hide-scrollbar -mx-6 px-6 pb-2">
-                {models.map((m, i) => (
-                  <div 
-                    key={i} 
-                    className={`relative w-20 h-28 rounded-xl overflow-hidden shrink-0 cursor-pointer border-2 transition-all ${selectedModel === m ? 'border-primary ring-2 ring-primary/20 ring-offset-1 ring-offset-background' : 'border-transparent'}`}
-                    onClick={() => setSelectedModel(m)}
+            <div className="px-5 pb-6 shrink-0">
+              <Button
+                className="w-full rounded-full h-13 text-base shadow-lg shadow-primary/25 gap-2"
+                onClick={() => setStep(2)}
+              >
+                <Sparkles size={18} />
+                Start Virtual Try-On
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* ── STEP 2: Live Try-On ── */}
+        {step === 2 && (
+          <div className="flex-1 flex flex-col min-h-0">
+            {/* Header */}
+            <header className="flex items-center gap-3 px-4 pt-3 pb-2 shrink-0">
+              <Button variant="ghost" size="icon" className="rounded-full" onClick={() => setStep(1)}>
+                <ChevronLeft size={22} />
+              </Button>
+              <div className="flex-1">
+                <h1 className="text-lg font-bold">Virtual Try-On</h1>
+                <p className="text-xs text-muted-foreground">Tap any outfit to try it instantly</p>
+              </div>
+              <button onClick={() => setIsSaved(s => !s)} className={`flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-full border transition-all ${isSaved ? "bg-red-50 border-red-200 text-red-500" : "border-border text-muted-foreground"}`}>
+                <Heart size={13} fill={isSaved ? "currentColor" : "none"} />
+                {isSaved ? "Saved" : "Save"}
+              </button>
+            </header>
+
+            {/* Canvas preview */}
+            <div className="relative mx-4 rounded-3xl overflow-hidden bg-secondary/30 shadow-xl shrink-0" style={{ aspectRatio: "3/4", maxHeight: "52vh" }}>
+              <canvas
+                ref={canvasRef}
+                width={420}
+                height={560}
+                className="w-full h-full object-cover"
+              />
+
+              {/* Overlay badges */}
+              <div className="absolute top-3 right-3 bg-black/50 backdrop-blur-sm rounded-full px-2.5 py-1 flex items-center gap-1">
+                <Sparkles size={12} className="text-yellow-400" />
+                <span className="text-white text-[10px] font-medium">AI Try-On</span>
+              </div>
+              <div className="absolute top-3 left-3 bg-black/50 backdrop-blur-sm rounded-full px-2.5 py-1">
+                <span className="text-white text-[10px] font-medium">{selectedGarment.name}</span>
+              </div>
+
+              {/* Price tag */}
+              <div className="absolute bottom-3 left-3 bg-white rounded-xl px-3 py-1.5 shadow-lg">
+                <p className="text-xs text-muted-foreground">Price</p>
+                <p className="text-sm font-bold text-primary">{selectedGarment.price}</p>
+              </div>
+              <button className="absolute bottom-3 right-3 bg-primary text-white rounded-xl px-4 py-2 text-xs font-bold shadow-lg">
+                Add to Cart
+              </button>
+            </div>
+
+            {/* Outfit picker */}
+            <div className="shrink-0 mt-3 px-4">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-semibold">Choose Outfit</h3>
+                <span className="text-xs text-muted-foreground">{GARMENTS.length} items</span>
+              </div>
+              <div className="flex gap-3 overflow-x-auto hide-scrollbar -mx-4 px-4 pb-2">
+                {GARMENTS.map(g => (
+                  <div
+                    key={g.id}
+                    onClick={() => { setSelectedGarmentId(g.id); setIsSaved(false); }}
+                    className={`relative flex-shrink-0 w-20 rounded-2xl overflow-hidden cursor-pointer border-2 transition-all ${selectedGarmentId === g.id ? "border-primary shadow-md shadow-primary/20 scale-105" : "border-border/40"}`}
+                    style={{ aspectRatio: "3/4" }}
                   >
-                    <img src={m} alt={`Model ${i+1}`} className="w-full h-full object-cover" />
-                    {selectedModel === m && (
-                      <div className="absolute top-1.5 right-1.5 bg-primary text-white rounded-full p-0.5 shadow-md">
-                        <Check size={12} />
+                    <img src={g.image} alt={g.name} className="w-full h-full object-cover bg-secondary/50" />
+                    {g.tag && (
+                      <div className="absolute top-1 left-1 bg-primary text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full">{g.tag}</div>
+                    )}
+                    {selectedGarmentId === g.id && (
+                      <div className="absolute inset-0 bg-primary/10 flex items-center justify-center">
+                        <div className="bg-primary rounded-full p-1">
+                          <Check size={10} className="text-white" />
+                        </div>
                       </div>
                     )}
+                    <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent px-1 py-1.5">
+                      <p className="text-white text-[8px] font-medium leading-tight">{g.name}</p>
+                      <p className="text-white/80 text-[8px]">{g.price}</p>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="mt-auto pt-2 shrink-0 pb-4">
-              <Button 
-                className="w-full rounded-full h-12 text-base shadow-lg shadow-primary/25"
-                disabled={!selectedModel}
-                onClick={() => setStep(2)}
-              >
-                Continue
+            {/* Actions */}
+            <div className="px-4 pb-4 mt-3 flex gap-3 shrink-0">
+              <Button variant="outline" className="flex-1 rounded-full gap-2 h-11 border-2" onClick={() => setStep(1)}>
+                <RotateCcw size={15} /> Change Avatar
+              </Button>
+              <Button className="flex-1 rounded-full gap-2 h-11 shadow-lg shadow-primary/20">
+                <Share2 size={15} /> Share Look
               </Button>
             </div>
-          </div>
-        )}
-
-        {step === 2 && (
-          <div className="flex-1 flex flex-col min-h-0 relative">
-            {/* Show selected model small */}
-            <div className="flex gap-4 items-center bg-secondary/50 p-3 rounded-2xl border border-border/50 shrink-0 mb-4 z-10">
-              <div className="w-12 h-16 rounded-lg overflow-hidden">
-                <img src={selectedModel || ""} className="w-full h-full object-cover" alt="Selected" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium">Selected Photo</p>
-                <p className="text-xs text-muted-foreground">Ready for styling</p>
-              </div>
-              <Button variant="ghost" size="sm" onClick={() => setStep(1)} className="text-xs">Change</Button>
-            </div>
-
-            <div className="flex-1 min-h-0 flex flex-col z-0">
-              <h3 className="font-semibold mb-3 text-base shrink-0">Choose from Wardrobe</h3>
-              <div className="flex-1 overflow-y-auto pr-2 pb-24 -mr-2">
-                <div className="grid grid-cols-2 gap-3">
-                  {garments.map((g) => (
-                    <div 
-                      key={g.id} 
-                      className={`relative rounded-2xl overflow-hidden cursor-pointer border-2 transition-all aspect-[3/4] ${selectedGarment === g.id ? 'border-primary ring-2 ring-primary/20 ring-offset-2 ring-offset-background' : 'border-transparent'}`}
-                      onClick={() => setSelectedGarment(g.id)}
-                    >
-                      <img src={g.image} alt={g.name} className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex items-end p-2">
-                        <span className="text-white font-medium text-xs">{g.name}</span>
-                      </div>
-                      {selectedGarment === g.id && (
-                        <div className="absolute top-1.5 right-1.5 bg-primary text-white rounded-full p-0.5 shadow-md">
-                          <Check size={12} />
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="absolute bottom-0 left-0 right-0 pt-6 pb-2 bg-gradient-to-t from-background via-background/95 to-transparent z-20">
-              <Button 
-                className="w-full rounded-full h-12 text-base shadow-lg shadow-primary/25 gap-2"
-                disabled={!selectedGarment}
-                onClick={() => setStep(3)}
-              >
-                <Sparkles size={18} />
-                Try it on
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {step === 3 && (
-          <div className="flex-1 flex flex-col items-center justify-center space-y-10 pb-20">
-            <div className="relative w-56 h-80 rounded-3xl overflow-hidden shadow-2xl border border-primary/20">
-              <img src={selectedModel || ""} className="w-full h-full object-cover opacity-60 grayscale" alt="Processing" />
-              
-              {/* Scanning effect */}
-              <div className="absolute inset-0 bg-primary/10 mix-blend-overlay" />
-              <div className="absolute top-0 left-0 right-0 h-1 bg-primary w-full shadow-[0_0_20px_rgba(var(--primary),1)] animate-[scan_2s_ease-in-out_infinite]" />
-              
-              <div className="absolute inset-0 flex items-center justify-center">
-                <Sparkles className="text-primary w-12 h-12 animate-pulse" />
-              </div>
-            </div>
-            
-            <div className="text-center space-y-3">
-              <h3 className="font-bold text-2xl animate-pulse bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent">Analyzing shape...</h3>
-              <p className="text-muted-foreground">Applying advanced AI styling perfectly to your body</p>
-            </div>
-            
-            <style dangerouslySetInnerHTML={{__html: `
-              @keyframes scan {
-                0% { top: 0; }
-                50% { top: 100%; }
-                100% { top: 0; }
-              }
-            `}} />
-          </div>
-        )}
-
-        {step === 4 && (
-          <div className="flex-1 flex flex-col space-y-4 pb-4">
-            <div className="relative flex-1 min-h-[400px] rounded-3xl overflow-hidden shadow-2xl bg-white">
-              {/* Model photo as base */}
-              <img
-                src={selectedModel || ""}
-                alt="Model"
-                className="w-full h-full object-cover object-top"
-              />
-
-              {/* Garment overlay — solid, placed on chest/torso */}
-              {selectedGarmentData && (
-                <div
-                  className="absolute left-0 right-0 flex justify-center items-start pointer-events-none"
-                  style={{ top: "30%", bottom: 0 }}
-                >
-                  <img
-                    src={selectedGarmentData.image}
-                    alt={selectedGarmentData.name}
-                    className="w-[75%] object-contain drop-shadow-2xl"
-                    style={{ maxHeight: "55%", marginTop: "2%" }}
-                  />
-                </div>
-              )}
-
-              {/* AI badge */}
-              <div className="absolute top-4 right-4 bg-black/50 backdrop-blur-md rounded-full px-3 py-1 flex items-center gap-1 border border-white/20">
-                <Sparkles size={14} className="text-yellow-400" />
-                <span className="text-white text-xs font-medium">AI Try-On</span>
-              </div>
-
-              {/* Outfit label */}
-              {selectedGarmentData && (
-                <div className="absolute top-4 left-4 bg-black/50 backdrop-blur-md rounded-full px-3 py-1 border border-white/20">
-                  <span className="text-white text-xs font-medium">{selectedGarmentData.name}</span>
-                </div>
-              )}
-
-              <div className="absolute bottom-4 left-4 right-4 flex gap-3">
-                <Button 
-                  variant="secondary" 
-                  className="flex-1 rounded-full h-14 bg-white/90 backdrop-blur text-black hover:bg-white border-0 font-medium gap-2"
-                  onClick={() => setIsSaved(true)}
-                  disabled={isSaved}
-                >
-                  {isSaved ? (
-                    <>
-                      <Check size={18} className="text-green-600" />
-                      Saved
-                    </>
-                  ) : (
-                    "Save to Wardrobe"
-                  )}
-                </Button>
-                <Button className="flex-1 rounded-full h-14 shadow-lg shadow-primary/20 font-medium">
-                  Share Look
-                </Button>
-              </div>
-            </div>
-
-            {/* Side-by-side comparison */}
-            <div className="flex gap-3 shrink-0">
-              <div className="flex-1 rounded-2xl overflow-hidden border border-border aspect-[3/4] relative bg-secondary/30">
-                <img src={selectedModel || ""} alt="Original" className="w-full h-full object-cover object-top" />
-                <div className="absolute bottom-0 inset-x-0 bg-black/50 text-white text-[10px] font-medium text-center py-1.5">Original</div>
-              </div>
-              <div className="flex-1 rounded-2xl overflow-hidden border-2 border-primary aspect-[3/4] relative bg-white">
-                <img src={selectedModel || ""} alt="Result" className="w-full h-full object-cover object-top" />
-                {selectedGarmentData && (
-                  <div
-                    className="absolute left-0 right-0 flex justify-center items-start pointer-events-none"
-                    style={{ top: "30%", bottom: 0 }}
-                  >
-                    <img
-                      src={selectedGarmentData.image}
-                      alt="Outfit"
-                      className="w-[75%] object-contain"
-                      style={{ maxHeight: "55%", marginTop: "2%" }}
-                    />
-                  </div>
-                )}
-                <div className="absolute bottom-0 inset-x-0 bg-primary/80 text-white text-[10px] font-medium text-center py-1.5">With Outfit</div>
-              </div>
-            </div>
-
-            <Button variant="outline" className="w-full rounded-full h-12 border-2 border-primary/20 text-primary hover:bg-primary/5 shrink-0" onClick={() => setStep(2)}>
-              Try another outfit
-            </Button>
           </div>
         )}
       </div>
