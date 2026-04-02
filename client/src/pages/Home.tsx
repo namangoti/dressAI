@@ -1,11 +1,9 @@
 import MobileLayout from "@/components/layout/MobileLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Bell, Heart, User, MapPin, ChevronDown, X, Navigation } from "lucide-react";
+import { Search, Bell, Heart, User, MapPin, ChevronDown, X, Navigation, Loader2 } from "lucide-react";
 import { Link } from "wouter";
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
-import L from "leaflet";
 
 import garment1 from "@/assets/images/tshirt-black.png";
 import garment2 from "@/assets/images/tshirt-white.png";
@@ -101,19 +99,12 @@ const tabsData = {
   }
 };
 
-// Custom hook to handle map centering
-function ChangeView({ center }: { center: [number, number] }) {
-  const map = useMap();
-  map.setView(center, map.getZoom());
-  return null;
-}
-
 export default function Home() {
   const [showLocationModal, setShowLocationLocationModal] = useState(false);
   const [locationStr, setLocationStr] = useState("Deliver to Delad Village - Surat, Sayan, 394130, Guja...");
   const [searchInput, setSearchInput] = useState("");
   const [step, setStep] = useState<"search" | "map" | "details">("search");
-  const [mapCenter, setMapCenter] = useState<[number, number]>([21.1702, 72.8311]); // Default to Surat
+  const [mapQuery, setMapQuery] = useState("Surat, Gujarat, India");
   const [isSearching, setIsSearching] = useState(false);
   const [addressDetails, setAddressDetails] = useState({
     houseNo: "",
@@ -121,24 +112,14 @@ export default function Home() {
     landmark: "",
   });
 
-  // Basic geocoding using Nominatim (OpenStreetMap)
   const searchLocation = async (query: string) => {
     setIsSearching(true);
-    try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
-      const data = await response.json();
-      if (data && data.length > 0) {
-        const { lat, lon } = data[0];
-        setMapCenter([parseFloat(lat), parseFloat(lon)]);
-        setStep("map");
-      } else {
-        alert("Location not found. Please try a different search or use pincode.");
-      }
-    } catch (error) {
-      alert("Error searching location. Please try again.");
-    } finally {
+    // Small delay to show loading state, then open map
+    setTimeout(() => {
+      setMapQuery(query);
+      setStep("map");
       setIsSearching(false);
-    }
+    }, 300);
   };
 
   const handleLocationSubmit = (e: React.FormEvent) => {
@@ -185,51 +166,40 @@ export default function Home() {
                     </Button>
                   </div>
                   
-                  {/* Full-bleed Interactive Map Mockup */}
-                  <div className="relative flex-1 bg-secondary/20 min-h-[300px]">
-                    <MapContainer 
-                      center={mapCenter} 
-                      zoom={15} 
-                      zoomControl={false}
-                      className="w-full h-full z-0"
-                    >
-                      <ChangeView center={mapCenter} />
-                      <TileLayer
-                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                        url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-                        maxZoom={19}
-                      />
-                      <Marker 
-                        position={mapCenter}
-                        icon={L.divIcon({
-                          className: 'custom-marker',
-                          html: `<div style="display:flex;flex-direction:column;align-items:center;">
-                                   <div style="background:black;color:white;font-size:10px;font-weight:bold;padding:4px 8px;border-radius:999px;margin-bottom:4px;white-space:nowrap;box-shadow:0 4px 6px -1px rgb(0 0 0 / 0.1);">
-                                     Order will be delivered here
-                                     <div style="position:absolute;bottom:-4px;left:50%;transform:translateX(-50%) rotate(45deg);width:8px;height:8px;background:black;"></div>
-                                   </div>
-                                   <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="var(--color-primary)" stroke="var(--color-primary)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3" fill="white"/></svg>
-                                 </div>`,
-                          iconSize: [40, 60],
-                          iconAnchor: [20, 60],
-                        })}
-                      />
-                    </MapContainer>
-                    
-                    <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_20px_rgba(0,0,0,0.1)] z-10"></div>
+                  {/* Real Interactive Map via OpenStreetMap embed */}
+                  <div className="relative flex-1 min-h-[300px]">
+                    <iframe
+                      key={mapQuery}
+                      title="Delivery Location Map"
+                      src={`https://www.openstreetmap.org/export/embed.html?bbox=&layer=mapnik&marker=&query=${encodeURIComponent(mapQuery)}`}
+                      className="w-full h-full border-0"
+                      sandbox="allow-scripts allow-same-origin"
+                    />
+                    {/* Center pin overlay */}
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-full pointer-events-none z-10 flex flex-col items-center pb-1 drop-shadow-lg">
+                      <div className="bg-black text-white text-[10px] font-bold px-3 py-1.5 rounded-full mb-1 shadow-lg whitespace-nowrap relative">
+                        Order will be delivered here
+                        <div className="absolute -bottom-[3px] left-1/2 -translate-x-1/2 w-2 h-2 bg-black rotate-45"></div>
+                      </div>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="#7c3aed" stroke="#7c3aed" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/>
+                        <circle cx="12" cy="10" r="3" fill="white"/>
+                      </svg>
+                    </div>
 
-                    {/* Recenter Target Button */}
+                    {/* Recenter Button */}
                     <div className="absolute bottom-6 right-4 z-20">
                       <Button 
                         variant="secondary" 
                         size="icon" 
-                        className="h-12 w-12 rounded-full shadow-lg bg-background text-primary" 
+                        className="h-12 w-12 rounded-full shadow-lg bg-background text-primary"
                         onClick={() => {
                           if (navigator.geolocation) {
                             navigator.geolocation.getCurrentPosition(
                               (position) => {
-                                setMapCenter([position.coords.latitude, position.coords.longitude]);
-                                setSearchInput(`Lat: ${position.coords.latitude.toFixed(4)}, Lng: ${position.coords.longitude.toFixed(4)}`);
+                                const q = `${position.coords.latitude},${position.coords.longitude}`;
+                                setMapQuery(q);
+                                setSearchInput(q);
                               }
                             );
                           }
@@ -273,13 +243,17 @@ export default function Home() {
                         className="w-full justify-start gap-3 h-12 border-primary/20 text-primary hover:bg-primary/5 hover:text-primary rounded-xl"
                         onClick={() => {
                           if (navigator.geolocation) {
+                            setIsSearching(true);
                             navigator.geolocation.getCurrentPosition(
                               (position) => {
-                                setMapCenter([position.coords.latitude, position.coords.longitude]);
-                                setSearchInput(`Lat: ${position.coords.latitude.toFixed(4)}, Lng: ${position.coords.longitude.toFixed(4)}`);
+                                const q = `${position.coords.latitude},${position.coords.longitude}`;
+                                setMapQuery(q);
+                                setSearchInput(`${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}`);
                                 setStep("map");
+                                setIsSearching(false);
                               },
                               (error) => {
+                                setIsSearching(false);
                                 alert("Location access denied. Please type your pincode below.");
                               }
                             );
@@ -313,8 +287,8 @@ export default function Home() {
                             />
                           </div>
                         </div>
-                        <Button type="submit" className="w-full h-12 rounded-xl font-bold" disabled={!searchInput.trim()}>
-                          Search Location
+                        <Button type="submit" className="w-full h-12 rounded-xl font-bold" disabled={!searchInput.trim() || isSearching}>
+                          {isSearching ? <><Loader2 size={18} className="animate-spin mr-2" /> Searching...</> : "Search Location"}
                         </Button>
                       </form>
                     </div>
