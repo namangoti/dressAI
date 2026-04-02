@@ -1,7 +1,8 @@
 import MobileLayout from "@/components/layout/MobileLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Sparkles, ChevronRight } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, Sparkles, ChevronRight, Search, Bell, Heart, User, MapPin, ChevronDown } from "lucide-react";
 import { Link } from "wouter";
 
 import garment1 from "@/assets/images/tshirt-black.png";
@@ -19,15 +20,61 @@ export default function Home() {
 
   return (
     <MobileLayout>
-      <div className="p-6 space-y-8">
-        <header className="flex justify-between items-center pt-2">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">DressAI
-</h1>
-            <p className="text-muted-foreground">Welcome back, Alex</p>
+      <div className="p-4 space-y-6">
+        <header className="space-y-4 pt-2">
+          {/* Location */}
+          <div className="flex items-center gap-1.5 text-xs font-medium text-foreground/80">
+            <MapPin size={14} />
+            <span className="truncate max-w-[250px]">Deliver to Delad Village - Surat, Sayan, 394130, Guja...</span>
+            <ChevronDown size={14} />
           </div>
-          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 overflow-hidden">
-            <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80" alt="Profile" className="w-full h-full object-cover" />
+
+          {/* Search and Icons */}
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-primary font-bold italic text-lg tracking-tighter">M</div>
+              <input 
+                type="text" 
+                placeholder='"Shirts"' 
+                className="w-full h-10 bg-secondary/30 border border-border/50 rounded-full pl-10 pr-10 text-sm focus:outline-none"
+              />
+              <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+            </div>
+            <div className="flex items-center gap-3.5 text-foreground">
+              <Bell size={20} className="stroke-[1.5]" />
+              <Heart size={20} className="stroke-[1.5]" />
+              <User size={20} className="stroke-[1.5]" />
+            </div>
+          </div>
+
+          {/* Tabs */}
+          <Tabs defaultValue="all" className="w-full">
+            <TabsList className="w-full h-auto bg-transparent p-0 justify-between border-b border-border/30 rounded-none pb-0">
+              <TabsTrigger value="all" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none pb-2 px-2 font-medium">All</TabsTrigger>
+              <TabsTrigger value="men" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none pb-2 px-2 font-medium text-muted-foreground">Men</TabsTrigger>
+              <TabsTrigger value="women" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none pb-2 px-2 font-medium text-muted-foreground">Women</TabsTrigger>
+              <TabsTrigger value="kids" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none pb-2 px-2 font-medium text-muted-foreground">Kids</TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          {/* Categories */}
+          <div className="flex gap-4 overflow-x-auto hide-scrollbar pt-2 pb-1">
+            {[
+              { name: "Fashion", img: "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=100&q=80" },
+              { name: "Beauty", img: "https://images.unsplash.com/photo-1596462502278-27bf85033e5a?w=100&q=80" },
+              { name: "Footwear", img: "https://images.unsplash.com/photo-1549298916-b41d501d3772?w=100&q=80" },
+              { name: "Homeliving", img: "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=100&q=80" },
+              { name: "Accessories", img: "https://images.unsplash.com/photo-1523206489230-c012c64b2b48?w=100&q=80" },
+            ].map((cat, i) => (
+              <div key={i} className="flex flex-col items-center gap-1.5 shrink-0">
+                <div className={`w-16 h-16 rounded-[18px] overflow-hidden border ${i === 0 ? 'border-primary p-0.5' : 'border-border/50'}`}>
+                  <div className="w-full h-full rounded-2xl overflow-hidden bg-secondary">
+                    <img src={cat.img} alt={cat.name} className="w-full h-full object-cover" />
+                  </div>
+                </div>
+                <span className={`text-[10px] font-medium ${i === 0 ? 'text-primary' : 'text-foreground'}`}>{cat.name}</span>
+              </div>
+            ))}
           </div>
         </header>
 
