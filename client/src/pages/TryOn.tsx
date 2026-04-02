@@ -84,11 +84,40 @@ export default function TryOn() {
               <p className="text-xs text-muted-foreground mb-3 max-w-[220px]">For best results, use a full-body photo with good lighting.</p>
               
               <div className="flex gap-2 w-full">
-                <Button variant="outline" className="flex-1 rounded-2xl gap-1.5 h-9 border-primary/20 hover:bg-primary/5 text-xs">
+                <Button variant="outline" className="flex-1 rounded-2xl gap-1.5 h-9 border-primary/20 hover:bg-primary/5 text-xs relative overflow-hidden">
                   <Camera size={14} /> Camera
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    capture="environment"
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                          setSelectedModel(event.target?.result as string);
+                        };
+                        reader.readAsDataURL(e.target.files[0]);
+                      }
+                    }}
+                  />
                 </Button>
-                <Button variant="outline" className="flex-1 rounded-2xl gap-1.5 h-9 border-primary/20 hover:bg-primary/5 text-xs">
+                <Button variant="outline" className="flex-1 rounded-2xl gap-1.5 h-9 border-primary/20 hover:bg-primary/5 text-xs relative overflow-hidden">
                   <ImageIcon size={14} /> Gallery
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                          setSelectedModel(event.target?.result as string);
+                        };
+                        reader.readAsDataURL(e.target.files[0]);
+                      }
+                    }}
+                  />
                 </Button>
               </div>
             </div>
