@@ -4,19 +4,19 @@ import { useState, useEffect } from "react";
 import { Upload, Sparkles, ChevronLeft, Check, Camera, Image as ImageIcon } from "lucide-react";
 import { useLocation } from "wouter";
 
-import garment1 from "@/assets/images/garment-1-nobg.png";
-import garment2 from "@/assets/images/garment-2-nobg.png";
-import garment3 from "@/assets/images/garment-3-nobg.png";
-import garment4 from "@/assets/images/garment-4-nobg.png";
-import garment5 from "@/assets/images/garment-5-nobg.png";
-import garment6 from "@/assets/images/garment-6-nobg.png";
+import garment1 from "@/assets/images/tshirt-black.png";
+import garment2 from "@/assets/images/tshirt-white.png";
+import garment3 from "@/assets/images/tshirt-grey.png";
+import garment4 from "@/assets/images/tshirt-red.png";
+import garment5 from "@/assets/images/tshirt-blue.png";
+import garment6 from "@/assets/images/tshirt-graphic.png";
 
-import result1 from "@/assets/images/result-1.jpg";
-import result2 from "@/assets/images/result-2.jpg";
-import result3 from "@/assets/images/result-3.jpg";
-import result4 from "@/assets/images/result-4.jpg";
-import result5 from "@/assets/images/result-5.jpg";
-import result6 from "@/assets/images/result-6.jpg";
+import result1 from "@/assets/images/result-black.png";
+import result2 from "@/assets/images/result-white.png";
+import result3 from "@/assets/images/result-grey.png";
+import result4 from "@/assets/images/result-red.png";
+import result5 from "@/assets/images/result-red.png"; // Fallback since limit reached
+import result6 from "@/assets/images/result-black.png"; // Fallback since limit reached
 
 export default function TryOn() {
   const [, setLocation] = useLocation();
@@ -27,18 +27,18 @@ export default function TryOn() {
   
   // Mock data
   const models = [
-    "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&q=80", // Female
     "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&q=80", // Male
     "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&q=80", // Male 2
+    "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&q=80", // Female
   ];
   
   const garments = [
-    { id: 1, image: garment1, name: "Yellow Dress", result: result1 },
-    { id: 2, image: garment2, name: "Red Top", result: result2 },
-    { id: 3, image: garment3, name: "Denim Jacket", result: result3 },
-    { id: 4, image: garment4, name: "Black T-Shirt", result: result4 },
-    { id: 5, image: garment5, name: "White Shirt", result: result5 },
-    { id: 6, image: garment6, name: "Grey Hoodie", result: result6 },
+    { id: 1, image: garment1, name: "Black T-Shirt", result: result1 },
+    { id: 2, image: garment2, name: "White T-Shirt", result: result2 },
+    { id: 3, image: garment3, name: "Grey T-Shirt", result: result3 },
+    { id: 4, image: garment4, name: "Red T-Shirt", result: result4 },
+    { id: 5, image: garment5, name: "Blue T-Shirt", result: result5 },
+    { id: 6, image: garment6, name: "Graphic T-Shirt", result: result6 },
   ];
 
   // Auto transition from step 3 to 4

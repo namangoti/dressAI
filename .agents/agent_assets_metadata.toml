@@ -1,5 +1,64 @@
 uploads = []
-generated = []
+
+[[generated]]
+id = "FZA1HNmBJSyMK2_GRan3U"
+uri = "file://client/src/assets/images/tshirt-black.png"
+type = "image"
+title = "Plain black t-shirt flat lay"
+
+[[generated]]
+id = "gQzrGj6S56Iyw6YsXAkN6"
+uri = "file://client/src/assets/images/tshirt-white.png"
+type = "image"
+title = "Plain white t-shirt flat lay"
+
+[[generated]]
+id = "HFuDswsICMsYSCywkiyNy"
+uri = "file://client/src/assets/images/tshirt-grey.png"
+type = "image"
+title = "Plain grey t-shirt flat lay"
+
+[[generated]]
+id = "vLBGTyvpCwAz0yszg7Qp4"
+uri = "file://client/src/assets/images/tshirt-red.png"
+type = "image"
+title = "Plain red t-shirt flat lay"
+
+[[generated]]
+id = "M1NiQClNajGHO26r85wXu"
+uri = "file://client/src/assets/images/tshirt-blue.png"
+type = "image"
+title = "Plain blue t-shirt flat lay"
+
+[[generated]]
+id = "I50KQroyzeuKolHdw0K8M"
+uri = "file://client/src/assets/images/tshirt-graphic.png"
+type = "image"
+title = "Graphic t-shirt flat lay"
+
+[[generated]]
+id = "QcBvsb75DWe-rOZ8KZZ1M"
+uri = "file://client/src/assets/images/result-black.png"
+type = "image"
+title = "Man wearing black t-shirt"
+
+[[generated]]
+id = "xXlGxvRgtlITG2J-al_ep"
+uri = "file://client/src/assets/images/result-white.png"
+type = "image"
+title = "Man wearing white t-shirt"
+
+[[generated]]
+id = "3ukzxg2xq0aHmW-dq_cbK"
+uri = "file://client/src/assets/images/result-grey.png"
+type = "image"
+title = "Man wearing grey t-shirt"
+
+[[generated]]
+id = "YrerJ0cnlEz_AI8yzs7pv"
+uri = "file://client/src/assets/images/result-red.png"
+type = "image"
+title = "Man wearing red t-shirt"
 
 [[outputs]]
 id = "DH2-EdXjdIGnlmt_Nlfkr"

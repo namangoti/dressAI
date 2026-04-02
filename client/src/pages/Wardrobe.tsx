@@ -3,21 +3,21 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Search, Filter } from "lucide-react";
 
-import garment1 from "@/assets/images/garment-1-nobg.png";
-import garment2 from "@/assets/images/garment-2-nobg.png";
-import garment3 from "@/assets/images/garment-3-nobg.png";
-import garment4 from "@/assets/images/garment-4-nobg.png";
-import garment5 from "@/assets/images/garment-5-nobg.png";
-import garment6 from "@/assets/images/garment-6-nobg.png";
+import garment1 from "@/assets/images/tshirt-black.png";
+import garment2 from "@/assets/images/tshirt-white.png";
+import garment3 from "@/assets/images/tshirt-grey.png";
+import garment4 from "@/assets/images/tshirt-red.png";
+import garment5 from "@/assets/images/tshirt-blue.png";
+import garment6 from "@/assets/images/tshirt-graphic.png";
 
 export default function Wardrobe() {
   const items = [
-    { id: 1, type: "dress", image: garment1, name: "Yellow Dress" },
-    { id: 2, type: "top", image: garment2, name: "Red Top" },
-    { id: 3, type: "top", image: garment3, name: "Denim Jacket" },
-    { id: 4, type: "top", image: garment4, name: "Black T-Shirt" },
-    { id: 5, type: "top", image: garment5, name: "White Shirt" },
-    { id: 6, type: "top", image: garment6, name: "Grey Hoodie" },
+    { id: 1, type: "top", image: garment1, name: "Black T-Shirt" },
+    { id: 2, type: "top", image: garment2, name: "White T-Shirt" },
+    { id: 3, type: "top", image: garment3, name: "Grey T-Shirt" },
+    { id: 4, type: "top", image: garment4, name: "Red T-Shirt" },
+    { id: 5, type: "top", image: garment5, name: "Blue T-Shirt" },
+    { id: 6, type: "top", image: garment6, name: "Graphic T-Shirt" },
   ];
 
   return (
