@@ -24,6 +24,7 @@ export default function TryOn() {
   
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
   const [selectedGarment, setSelectedGarment] = useState<number | null>(null);
+  const [isSaved, setIsSaved] = useState(false);
   
   // Mock data
   const models = [
@@ -46,6 +47,7 @@ export default function TryOn() {
     if (step === 3) {
       const timer = setTimeout(() => {
         setStep(4);
+        setIsSaved(false);
       }, 2500);
       return () => clearTimeout(timer);
     }
@@ -246,8 +248,20 @@ export default function TryOn() {
               </div>
               
               <div className="absolute bottom-4 left-4 right-4 flex gap-3">
-                <Button variant="secondary" className="flex-1 rounded-full h-14 bg-white/90 backdrop-blur text-black hover:bg-white border-0 font-medium">
-                  Save to Wardrobe
+                <Button 
+                  variant="secondary" 
+                  className="flex-1 rounded-full h-14 bg-white/90 backdrop-blur text-black hover:bg-white border-0 font-medium gap-2"
+                  onClick={() => setIsSaved(true)}
+                  disabled={isSaved}
+                >
+                  {isSaved ? (
+                    <>
+                      <Check size={18} className="text-green-600" />
+                      Saved
+                    </>
+                  ) : (
+                    "Save to Wardrobe"
+                  )}
                 </Button>
                 <Button className="flex-1 rounded-full h-14 shadow-lg shadow-primary/20 font-medium">
                   Share Look
