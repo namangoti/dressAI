@@ -169,33 +169,42 @@ export default function TryOn() {
     const canvas = canvasRef.current;
     const av     = avatarImgRef.current;
     const gm     = garmentImgRef.current;
-    if (!canvas || !av?.complete || !gm?.complete) return;
+    if (!canvas || !av || !gm) return;
     setRendering(false);
     renderTryOn(canvas, av, gm, avatarDef, sizeScale, !!uploadedPhoto);
   }, [avatarDef, sizeScale, uploadedPhoto]);
 
-  /* load avatar */
+  /* load avatar — only set crossOrigin for external URLs, NOT for data URLs */
   useEffect(() => {
     if (step !== 2) return;
     setRendering(true);
+    avatarImgRef.current = null;
     const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload  = () => { avatarImgRef.current = img; redraw(); };
-    img.onerror = () => setRendering(false);
+    const isDataUrl = avatarUrl.startsWith("data:");
+    if (!isDataUrl) img.crossOrigin = "anonymous";
+    img.onload = () => {
+      avatarImgRef.current = img;
+      redraw();
+    };
+    img.onerror = () => {
+      setRendering(false);
+    };
     img.src = avatarUrl;
   }, [avatarUrl, step, redraw]);
 
   /* load garment */
   useEffect(() => {
     if (step !== 2) return;
-    setRendering(true);
+    garmentImgRef.current = null;
     const img = new Image();
-    img.onload  = () => { garmentImgRef.current = img; redraw(); };
-    img.onerror = () => setRendering(false);
+    img.onload = () => {
+      garmentImgRef.current = img;
+      redraw();
+    };
     img.src = garment.image;
   }, [garment.image, step, redraw]);
 
-  /* redraw when sizeScale / avatarDef change */
+  /* redraw when size / body-type changes */
   useEffect(() => { if (step === 2) redraw(); }, [sizeScale, avatarDef, redraw, step]);
 
   /* ─────────────────── UI ─────────────────────────────── */
