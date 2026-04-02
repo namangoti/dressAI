@@ -238,15 +238,40 @@ export default function TryOn() {
         )}
 
         {step === 4 && (
-          <div className="flex-1 flex flex-col space-y-6 pb-6">
-            <div className="relative flex-1 min-h-[400px] rounded-3xl overflow-hidden shadow-2xl bg-secondary/20">
-              <img src={resultImage} alt="Result" className="w-full h-full object-cover" />
-              
-              <div className="absolute top-4 right-4 bg-black/40 backdrop-blur-md rounded-full px-3 py-1 flex items-center gap-1 border border-white/20">
+          <div className="flex-1 flex flex-col space-y-4 pb-4">
+            <div className="relative flex-1 min-h-[400px] rounded-3xl overflow-hidden shadow-2xl bg-white">
+              {/* Model photo as base */}
+              <img
+                src={selectedModel || ""}
+                alt="Model"
+                className="w-full h-full object-cover object-top"
+              />
+
+              {/* Garment overlay — covers torso area using absolute positioning */}
+              {selectedGarmentData && (
+                <div className="absolute inset-0 flex items-start justify-center pointer-events-none">
+                  <img
+                    src={selectedGarmentData.image}
+                    alt={selectedGarmentData.name}
+                    className="w-[72%] mt-[22%] object-contain mix-blend-multiply opacity-95 drop-shadow-xl"
+                    style={{ maxHeight: "45%" }}
+                  />
+                </div>
+              )}
+
+              {/* AI badge */}
+              <div className="absolute top-4 right-4 bg-black/50 backdrop-blur-md rounded-full px-3 py-1 flex items-center gap-1 border border-white/20">
                 <Sparkles size={14} className="text-yellow-400" />
-                <span className="text-white text-xs font-medium">AI Generated</span>
+                <span className="text-white text-xs font-medium">AI Try-On</span>
               </div>
-              
+
+              {/* Outfit label */}
+              {selectedGarmentData && (
+                <div className="absolute top-4 left-4 bg-black/50 backdrop-blur-md rounded-full px-3 py-1 border border-white/20">
+                  <span className="text-white text-xs font-medium">{selectedGarmentData.name}</span>
+                </div>
+              )}
+
               <div className="absolute bottom-4 left-4 right-4 flex gap-3">
                 <Button 
                   variant="secondary" 
@@ -268,8 +293,30 @@ export default function TryOn() {
                 </Button>
               </div>
             </div>
-            
-            <Button variant="outline" className="w-full rounded-full h-14 text-lg border-2 border-primary/20 text-primary hover:bg-primary/5" onClick={() => setStep(2)}>
+
+            {/* Side-by-side comparison */}
+            <div className="flex gap-3 shrink-0">
+              <div className="flex-1 rounded-2xl overflow-hidden border border-border aspect-[3/4] relative bg-secondary/30">
+                <img src={selectedModel || ""} alt="Original" className="w-full h-full object-cover object-top" />
+                <div className="absolute bottom-0 inset-x-0 bg-black/50 text-white text-[10px] font-medium text-center py-1.5">Original</div>
+              </div>
+              <div className="flex-1 rounded-2xl overflow-hidden border-2 border-primary aspect-[3/4] relative bg-white">
+                <img src={selectedModel || ""} alt="Result" className="w-full h-full object-cover object-top" />
+                {selectedGarmentData && (
+                  <div className="absolute inset-0 flex items-start justify-center pointer-events-none">
+                    <img
+                      src={selectedGarmentData.image}
+                      alt="Outfit"
+                      className="w-[75%] mt-[22%] object-contain mix-blend-multiply opacity-95"
+                      style={{ maxHeight: "45%" }}
+                    />
+                  </div>
+                )}
+                <div className="absolute bottom-0 inset-x-0 bg-primary/80 text-white text-[10px] font-medium text-center py-1.5">With Outfit</div>
+              </div>
+            </div>
+
+            <Button variant="outline" className="w-full rounded-full h-12 border-2 border-primary/20 text-primary hover:bg-primary/5 shrink-0" onClick={() => setStep(2)}>
               Try another outfit
             </Button>
           </div>
