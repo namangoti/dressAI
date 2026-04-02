@@ -49,7 +49,7 @@ const SKIN_TONES = [
   { key: "dark",   color: "#4A2912" },
 ];
 
-/* Convert an image src to base64 data URL (for garment assets) */
+/* Convert a local asset src to base64 */
 async function imageToBase64(src: string): Promise<string> {
   const resp = await fetch(src);
   const blob = await resp.blob();
@@ -58,6 +58,24 @@ async function imageToBase64(src: string): Promise<string> {
     reader.onload = () => resolve(reader.result as string);
     reader.onerror = reject;
     reader.readAsDataURL(blob);
+  });
+}
+
+/* Resize + compress a data-URL image to max 1024px wide, JPEG quality 0.85 */
+function compressImage(dataUrl: string, maxSize = 1024, quality = 0.85): Promise<string> {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL("image/jpeg", quality));
+    };
+    img.src = dataUrl;
   });
 }
 
@@ -100,13 +118,17 @@ export default function TryOn() {
 
     try {
       const g = GARMENTS.find(x => x.id === garmentId)!;
-      const garmentBase64 = await imageToBase64(g.image);
+      // Compress both images before sending
+      const [personCompressed, garmentBase64] = await Promise.all([
+        compressImage(uploadedPhoto, 768, 0.82),
+        imageToBase64(g.image),
+      ]);
 
       const resp = await fetch("/api/tryon", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          personImage: uploadedPhoto,
+          personImage: personCompressed,
           garmentImage: garmentBase64,
         }),
       });
