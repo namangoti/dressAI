@@ -137,20 +137,27 @@ export default function TryOn() {
         imageToBase64(g.image),
       ]);
 
+      const ctrl = new AbortController();
+      const clientTimer = setTimeout(() => ctrl.abort(), 135_000); // 135 s hard limit
       const resp = await fetch("/api/tryon", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: ctrl.signal,
         body: JSON.stringify({
           personImage: personCompressed,
           garmentImage: garmentBase64,
         }),
-      });
+      }).finally(() => clearTimeout(clientTimer));
 
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || "Failed");
       setAiResult(data.resultUrl);
     } catch (err: any) {
-      setError(err.message || "Something went wrong");
+      if (err.name === "AbortError") {
+        setError("Took too long — please try again");
+      } else {
+        setError(err.message || "Something went wrong");
+      }
     } finally {
       setLoading(false);
     }
