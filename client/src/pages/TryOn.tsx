@@ -1,10 +1,10 @@
 import MobileLayout from "@/components/layout/MobileLayout";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   ChevronLeft, Check, Camera, Image as ImageIcon,
   RotateCcw, Share2, Heart, Ruler, Weight, Shirt,
-  Sparkles, Loader2, AlertCircle
+  Sparkles, Loader2, AlertCircle, Clock
 } from "lucide-react";
 import { useLocation } from "wouter";
 
@@ -98,6 +98,19 @@ export default function TryOn() {
   const [aiResult, setAiResult]     = useState<string | null>(null);
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState<string | null>(null);
+  const [elapsed, setElapsed]       = useState(0);
+  const timerRef                    = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Elapsed-time ticker while loading
+  useEffect(() => {
+    if (loading) {
+      setElapsed(0);
+      timerRef.current = setInterval(() => setElapsed(s => s + 1), 1000);
+    } else {
+      if (timerRef.current) clearInterval(timerRef.current);
+    }
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [loading]);
 
   const bmi     = weight / Math.pow(height / 100, 2);
   const garment = GARMENTS.find(g => g.id === selectedId)!;
@@ -347,7 +360,13 @@ export default function TryOn() {
                     </div>
                     <div className="text-center">
                       <p className="font-bold text-base text-foreground">AI is fitting the outfit…</p>
-                      <p className="text-xs text-muted-foreground mt-1">This takes ~30 seconds</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Usually 15–30 seconds
+                      </p>
+                      <div className="mt-2 flex items-center justify-center gap-1 text-primary/80">
+                        <Clock size={12} />
+                        <span className="text-xs font-mono">{elapsed}s</span>
+                      </div>
                     </div>
                     <div className="flex gap-1">
                       {[0, 1, 2].map(i => (

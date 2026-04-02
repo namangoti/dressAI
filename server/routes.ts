@@ -26,8 +26,8 @@ export async function registerRoutes(
         return res.status(500).json({ error: "REPLICATE_API_TOKEN not configured" });
       }
 
-      // Start prediction using IDM-VTON (virtual try-on model)
-      const startResp = await fetch("https://api.replicate.com/v1/models/cuuupid/idm-vton/predictions", {
+      // Start prediction using fashn/tryon — fast production try-on model
+      const startResp = await fetch("https://api.replicate.com/v1/models/fashn/tryon/predictions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -36,13 +36,10 @@ export async function registerRoutes(
         },
         body: JSON.stringify({
           input: {
-            human_img: personImage,
-            garm_img: garmentImage,
-            garment_des: "a clothing item",
-            is_checked: true,
-            is_checked_crop: false,
-            denoise_steps: 30,
-            seed: 42,
+            model_image: personImage,
+            garment_image: garmentImage,
+            category: "tops",
+            long_top: false,
           },
         }),
       });
