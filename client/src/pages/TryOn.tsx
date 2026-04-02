@@ -72,7 +72,6 @@ export default function TryOn() {
   const [size, setSize]             = useState<Size>("M");
   const [skinTone, setSkinTone]     = useState("medium");
   const [uploadedPhoto, setUploadedPhoto] = useState<string | null>(null);
-  const [showMyPhoto, setShowMyPhoto]     = useState(false);
 
   /* ── try-on state ── */
   const [selectedId, setSelectedId] = useState(1);
@@ -254,70 +253,82 @@ export default function TryOn() {
               </button>
             </header>
 
-            {/* Main result image */}
-            <div className="mx-4 rounded-3xl overflow-hidden border border-border/30 shadow-xl relative shrink-0" style={{ aspectRatio: "3/4", maxHeight: "48vh" }}>
-
-              {/* Toggle: my photo vs worn look */}
-              {uploadedPhoto && (
-                <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex bg-black/60 backdrop-blur rounded-full p-0.5 gap-0.5">
-                  <button
-                    onClick={() => setShowMyPhoto(false)}
-                    className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-all ${!showMyPhoto ? "bg-white text-black" : "text-white"}`}>
-                    <Sparkles size={10} /> Outfit Look
-                  </button>
-                  <button
-                    onClick={() => setShowMyPhoto(true)}
-                    className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-all ${showMyPhoto ? "bg-white text-black" : "text-white"}`}>
-                    <User size={10} /> My Photo
-                  </button>
+            {/* ── With uploaded photo: side-by-side ── */}
+            {uploadedPhoto ? (
+              <div className="mx-4 flex gap-2 shrink-0" style={{ height: "46vh" }}>
+                {/* Left: user's photo */}
+                <div className="flex-1 rounded-3xl overflow-hidden border-2 border-primary shadow-lg relative">
+                  <img src={uploadedPhoto} alt="You" className="w-full h-full object-cover object-top" />
+                  <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent pt-6 pb-2 text-center">
+                    <span className="text-white text-[11px] font-bold flex items-center justify-center gap-1">
+                      <User size={10} /> You
+                    </span>
+                  </div>
                 </div>
-              )}
 
-              <img
-                key={showMyPhoto ? "myphoto" : `${selectedId}-${gender}`}
-                src={showMyPhoto && uploadedPhoto ? uploadedPhoto : wornUrl}
-                alt={showMyPhoto ? "Your photo" : garment.name}
-                className="w-full h-full object-cover object-top transition-opacity duration-300"
-              />
-
-              {/* Garment badge */}
-              {!showMyPhoto && (
+                {/* Right: model wearing selected outfit */}
+                <div className="flex-1 rounded-3xl overflow-hidden border border-border/40 shadow-lg relative">
+                  <img
+                    key={`${selectedId}-${gender}`}
+                    src={wornUrl}
+                    alt={garment.name}
+                    className="w-full h-full object-cover object-top"
+                  />
+                  <div className="absolute top-2 left-2 right-2 flex justify-between items-start">
+                    <div className="bg-black/55 backdrop-blur-sm rounded-full px-2 py-0.5 flex items-center gap-1">
+                      <img src={garment.image} alt="" className="w-3 h-3 object-contain" />
+                      <span className="text-white text-[9px] font-semibold truncate max-w-[60px]">{garment.name}</span>
+                    </div>
+                    <div className="bg-primary/90 rounded-full px-2 py-0.5">
+                      <span className="text-white text-[9px] font-bold">Worn</span>
+                    </div>
+                  </div>
+                  <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent pt-6 pb-2 text-center">
+                    <span className="text-white text-[11px] font-bold flex items-center justify-center gap-1">
+                      <Sparkles size={10} /> Outfit Look
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* ── No uploaded photo: full-width outfit look ── */
+              <div className="mx-4 rounded-3xl overflow-hidden border border-border/30 shadow-xl relative shrink-0" style={{ aspectRatio: "3/4", maxHeight: "48vh" }}>
+                <img
+                  key={`${selectedId}-${gender}`}
+                  src={wornUrl}
+                  alt={garment.name}
+                  className="w-full h-full object-cover object-top"
+                />
                 <div className="absolute top-3 left-3 bg-black/55 backdrop-blur-sm rounded-full px-2.5 py-1 flex items-center gap-1.5">
                   <img src={garment.image} alt="" className="w-4 h-4 object-contain" />
                   <span className="text-white text-[10px] font-semibold">{garment.name}</span>
                 </div>
-              )}
-
-              {/* Price + CTA */}
-              <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
-                <div className="bg-white/95 backdrop-blur rounded-2xl px-3 py-2 shadow-lg">
-                  <p className="text-[9px] text-muted-foreground">Price</p>
-                  <p className="text-base font-bold text-primary leading-none">{garment.price}</p>
-                  <p className="text-[9px] text-muted-foreground">Size: {size}</p>
-                </div>
-                <button className="bg-primary text-white rounded-2xl px-4 py-2.5 text-xs font-bold shadow-lg active:scale-95 transition-transform">
-                  Add to Cart
-                </button>
-              </div>
-
-              {/* "Outfit on model" label */}
-              {!showMyPhoto && (
                 <div className="absolute top-3 right-3 bg-primary/90 backdrop-blur-sm rounded-full px-2.5 py-1">
                   <span className="text-white text-[10px] font-bold">Wearing It</span>
                 </div>
-              )}
-            </div>
+                <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
+                  <div className="bg-white/95 backdrop-blur rounded-2xl px-3 py-2 shadow-lg">
+                    <p className="text-[9px] text-muted-foreground">Price</p>
+                    <p className="text-base font-bold text-primary leading-none">{garment.price}</p>
+                    <p className="text-[9px] text-muted-foreground">Size: {size}</p>
+                  </div>
+                  <button className="bg-primary text-white rounded-2xl px-4 py-2.5 text-xs font-bold shadow-lg active:scale-95 transition-transform">
+                    Add to Cart
+                  </button>
+                </div>
+              </div>
+            )}
 
-            {/* If user uploaded photo, show mini comparison */}
-            {uploadedPhoto && !showMyPhoto && (
-              <div className="mx-4 mt-2 flex items-center gap-2 p-2.5 rounded-2xl bg-secondary/50 border border-border/40 shrink-0">
-                <div className="w-10 h-13 rounded-lg overflow-hidden border border-border shrink-0" style={{ height: 52 }}>
-                  <img src={uploadedPhoto} alt="You" className="w-full h-full object-cover object-top" />
+            {/* Price + CTA bar (uploaded photo mode) */}
+            {uploadedPhoto && (
+              <div className="mx-4 mt-2 flex items-center gap-2 shrink-0">
+                <div className="flex-1 bg-secondary/40 rounded-2xl px-3 py-2 border border-border/40">
+                  <p className="text-[10px] text-muted-foreground">Selected</p>
+                  <p className="text-sm font-bold">{garment.name} · {garment.price}</p>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold">Your reference photo</p>
-                  <p className="text-[10px] text-muted-foreground">Tap "My Photo" above to switch view</p>
-                </div>
+                <button className="bg-primary text-white rounded-2xl px-5 py-2.5 text-sm font-bold shadow-lg active:scale-95 transition-transform shrink-0">
+                  Add to Cart
+                </button>
               </div>
             )}
 
