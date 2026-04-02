@@ -60,6 +60,42 @@ uri = "file://client/src/assets/images/result-red.png"
 type = "image"
 title = "Man wearing red t-shirt"
 
+[[generated]]
+id = "iSxEn-peINDP-aTrLamEi"
+uri = "file://client/src/assets/images/mens-shirt.png"
+type = "image"
+title = "Mens casual shirt flat lay"
+
+[[generated]]
+id = "ksvJ94OcI5aqagzIzMRN3"
+uri = "file://client/src/assets/images/mens-jeans.png"
+type = "image"
+title = "Mens jeans flat lay"
+
+[[generated]]
+id = "c7lzDoKNHok2Z_kG-FLdP"
+uri = "file://client/src/assets/images/womens-dress.png"
+type = "image"
+title = "Womens floral dress flat lay"
+
+[[generated]]
+id = "7K7rUJibxwN9qgv7n7vS2"
+uri = "file://client/src/assets/images/womens-top.png"
+type = "image"
+title = "Womens elegant top flat lay"
+
+[[generated]]
+id = "mRvK7303oPXSboRj86yHw"
+uri = "file://client/src/assets/images/kids-tshirt.png"
+type = "image"
+title = "Kids cute tshirt flat lay"
+
+[[generated]]
+id = "CfEqAJjQktL7FNBfzCb0j"
+uri = "file://client/src/assets/images/kids-dress.png"
+type = "image"
+title = "Kids dress flat lay"
+
 [[outputs]]
 id = "DH2-EdXjdIGnlmt_Nlfkr"
 uri = "file://client/src/assets/images/garment-1.jpg"

@@ -1,7 +1,19 @@
 import MobileLayout from "@/components/layout/MobileLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Bell, Heart, User, MapPin, ChevronDown, CreditCard } from "lucide-react";
+import { Search, Bell, Heart, User, MapPin, ChevronDown } from "lucide-react";
 import { Link } from "wouter";
+
+import garment1 from "@/assets/images/tshirt-black.png";
+import garment2 from "@/assets/images/tshirt-white.png";
+import garment3 from "@/assets/images/tshirt-grey.png";
+import garment4 from "@/assets/images/tshirt-red.png";
+import garment5 from "@/assets/images/tshirt-blue.png";
+import mensShirt from "@/assets/images/mens-shirt.png";
+import mensJeans from "@/assets/images/mens-jeans.png";
+import womensDress from "@/assets/images/womens-dress.png";
+import womensTop from "@/assets/images/womens-top.png";
+import kidsTshirt from "@/assets/images/kids-tshirt.png";
+import kidsDress from "@/assets/images/kids-dress.png";
 
 // Mock data for categories and grids
 const tabsData = {
@@ -14,12 +26,14 @@ const tabsData = {
     code: "DRESSAI300",
     bannerImg: "https://images.unsplash.com/photo-1571513722275-4b41940f54b8?w=600&q=80",
     grid: [
-      { name: "Shirts", img: "https://images.unsplash.com/photo-1596755094514-f87e32f85e2c?w=200&q=80" },
-      { name: "Casual Shoes", img: "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=200&q=80" },
-      { name: "Jeans", img: "https://images.unsplash.com/photo-1542272604-78021008064a?w=200&q=80" },
-      { name: "Sports Shoes", img: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200&q=80" },
-      { name: "T-Shirts", img: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=200&q=80" },
-      { name: "Kurta Sets", img: "https://images.unsplash.com/photo-1583391733958-d25e07fac0fa?w=200&q=80" },
+      { name: "Shirts", img: mensShirt },
+      { name: "Jeans", img: mensJeans },
+      { name: "Dresses", img: womensDress },
+      { name: "Tops", img: womensTop },
+      { name: "Kids T-Shirts", img: kidsTshirt },
+      { name: "Kids Dresses", img: kidsDress },
+      { name: "Basic T-Shirts", img: garment2 },
+      { name: "Colorful Tees", img: garment4 },
     ]
   },
   men: {
@@ -34,12 +48,12 @@ const tabsData = {
     code: "MEN499",
     bannerImg: "https://images.unsplash.com/photo-1516257984-b1b4d707412e?w=600&q=80",
     grid: [
-      { name: "Watches", img: "https://images.unsplash.com/photo-1524592094714-0f0654e20314?w=200&q=80" },
-      { name: "T-Shirts", img: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=200&q=80" },
-      { name: "Jeans", img: "https://images.unsplash.com/photo-1542272604-78021008064a?w=200&q=80" },
-      { name: "Formal Shirts", img: "https://images.unsplash.com/photo-1598033129183-c4f50c736f10?w=200&q=80" },
+      { name: "Casual Shirts", img: mensShirt },
+      { name: "Basic Tees", img: garment1 },
+      { name: "Jeans", img: mensJeans },
+      { name: "Graphic Tees", img: garment3 },
+      { name: "Polo Shirts", img: garment5 },
       { name: "Shorts", img: "https://images.unsplash.com/photo-1591195853828-11db59a44f6b?w=200&q=80" },
-      { name: "Shirts", img: "https://images.unsplash.com/photo-1596755094514-f87e32f85e2c?w=200&q=80" },
     ]
   },
   women: {
@@ -53,12 +67,12 @@ const tabsData = {
     code: "WOMEN499",
     bannerImg: "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=600&q=80",
     grid: [
-      { name: "Lingerie", img: "https://images.unsplash.com/photo-1620600100742-1e9d1502dc80?w=200&q=80" },
-      { name: "Kurta Sets", img: "https://images.unsplash.com/photo-1583391733958-d25e07fac0fa?w=200&q=80" },
-      { name: "Tops & Shirts", img: "https://images.unsplash.com/photo-1551163943-3f6a855d1153?w=200&q=80" },
+      { name: "Dresses", img: womensDress },
+      { name: "Tops & Shirts", img: womensTop },
+      { name: "Basic Tees", img: garment2 },
       { name: "Co-Ords", img: "https://images.unsplash.com/photo-1598522325055-611a3e63a8a3?w=200&q=80" },
-      { name: "Dresses", img: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=200&q=80" },
-      { name: "T-Shirts", img: "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=200&q=80" },
+      { name: "Jeans", img: "https://images.unsplash.com/photo-1541432901042-2d8bd64b4a9b?w=200&q=80" },
+      { name: "Skirts", img: "https://images.unsplash.com/photo-1583496661160-c588c4af5d85?w=200&q=80" },
     ]
   },
   kids: {
@@ -73,12 +87,12 @@ const tabsData = {
     code: "KIDS80",
     bannerImg: "https://images.unsplash.com/photo-1605518216938-7c31b7b14ad0?w=600&q=80",
     grid: [
-      { name: "Party Wear", img: "https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?w=200&q=80" },
-      { name: "Dresses", img: "https://images.unsplash.com/photo-1605518216938-7c31b7b14ad0?w=200&q=80" },
+      { name: "Party Wear", img: kidsDress },
+      { name: "T-Shirts", img: kidsTshirt },
       { name: "Winter Wear", img: "https://images.unsplash.com/photo-1544778107-1e5f03da0ce5?w=200&q=80" },
       { name: "Clothing Sets", img: "https://images.unsplash.com/photo-1519238382025-06b2db3c467a?w=200&q=80" },
-      { name: "Kurta Sets", img: "https://images.unsplash.com/photo-1560159828-5696e1a49f53?w=200&q=80" },
-      { name: "T-Shirts", img: "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=200&q=80" },
+      { name: "Jeans", img: "https://images.unsplash.com/photo-1604134914101-72c6861cb7e5?w=200&q=80" },
+      { name: "Shorts", img: "https://images.unsplash.com/photo-1596230303867-b5cc55c0e1db?w=200&q=80" },
     ]
   }
 };
