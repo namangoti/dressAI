@@ -4,11 +4,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Plus, Sparkles, ChevronRight } from "lucide-react";
 import { Link } from "wouter";
 
+import garment1 from "@/assets/images/tshirt-black.png";
+import garment2 from "@/assets/images/tshirt-white.png";
+import garment3 from "@/assets/images/tshirt-grey.png";
+import garment4 from "@/assets/images/tshirt-red.png";
+import garment5 from "@/assets/images/tshirt-blue.png";
+
 export default function Home() {
   const recentTryOns = [
-    { id: 1, image: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=400&q=80", title: "Summer Casual" },
-    { id: 2, image: "https://images.unsplash.com/photo-1550639525-c97d455acf70?w=400&q=80", title: "Evening Wear" },
-    { id: 3, image: "https://images.unsplash.com/photo-1539008835657-9e8e9680c956?w=400&q=80", title: "Work Look" },
+    { id: 1, image: garment1, title: "Black T-Shirt Look" },
+    { id: 2, image: garment2, title: "White T-Shirt Look" },
+    { id: 3, image: garment3, title: "Grey T-Shirt Look" },
   ];
 
   return (
@@ -71,10 +77,10 @@ export default function Home() {
             <Card className="border-0 shadow-sm bg-secondary/50 rounded-2xl overflow-hidden">
               <CardContent className="p-3 flex items-center gap-4">
                 <div className="w-16 h-16 rounded-xl bg-white overflow-hidden shrink-0">
-                  <img src="https://images.unsplash.com/photo-1550639525-c97d455acf70?w=150&q=80" alt="Outfit" className="w-full h-full object-cover" />
+                  <img src={garment4} alt="Outfit" className="w-full h-full object-cover" />
                 </div>
                 <div className="flex-1">
-                  <h4 className="font-medium text-sm">Sunny Weekend</h4>
+                  <h4 className="font-medium text-sm">Red Casual</h4>
                   <p className="text-xs text-muted-foreground">Based on your favorites</p>
                 </div>
                 <Button variant="ghost" size="icon" className="rounded-full shrink-0">
@@ -86,10 +92,10 @@ export default function Home() {
             <Card className="border-0 shadow-sm bg-secondary/50 rounded-2xl overflow-hidden">
               <CardContent className="p-3 flex items-center gap-4">
                 <div className="w-16 h-16 rounded-xl bg-white overflow-hidden shrink-0">
-                  <img src="https://images.unsplash.com/photo-1591369822096-ffd140ec948f?w=150&q=80" alt="Outfit" className="w-full h-full object-cover" />
+                  <img src={garment5} alt="Outfit" className="w-full h-full object-cover" />
                 </div>
                 <div className="flex-1">
-                  <h4 className="font-medium text-sm">Office Casual</h4>
+                  <h4 className="font-medium text-sm">Blue Essential</h4>
                   <p className="text-xs text-muted-foreground">Trending styles</p>
                 </div>
                 <Button variant="ghost" size="icon" className="rounded-full shrink-0">
