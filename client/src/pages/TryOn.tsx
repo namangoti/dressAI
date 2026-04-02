@@ -247,14 +247,17 @@ export default function TryOn() {
                 className="w-full h-full object-cover object-top"
               />
 
-              {/* Garment overlay — placed on the chest/torso */}
+              {/* Garment overlay — solid, placed on chest/torso */}
               {selectedGarmentData && (
-                <div className="absolute inset-0 flex items-end justify-center pointer-events-none" style={{ paddingBottom: "28%" }}>
+                <div
+                  className="absolute left-0 right-0 flex justify-center items-start pointer-events-none"
+                  style={{ top: "30%", bottom: 0 }}
+                >
                   <img
                     src={selectedGarmentData.image}
                     alt={selectedGarmentData.name}
-                    className="w-[68%] object-contain mix-blend-multiply opacity-95 drop-shadow-xl"
-                    style={{ maxHeight: "38%" }}
+                    className="w-[75%] object-contain drop-shadow-2xl"
+                    style={{ maxHeight: "55%", marginTop: "2%" }}
                   />
                 </div>
               )}
@@ -303,12 +306,15 @@ export default function TryOn() {
               <div className="flex-1 rounded-2xl overflow-hidden border-2 border-primary aspect-[3/4] relative bg-white">
                 <img src={selectedModel || ""} alt="Result" className="w-full h-full object-cover object-top" />
                 {selectedGarmentData && (
-                  <div className="absolute inset-0 flex items-end justify-center pointer-events-none" style={{ paddingBottom: "28%" }}>
+                  <div
+                    className="absolute left-0 right-0 flex justify-center items-start pointer-events-none"
+                    style={{ top: "30%", bottom: 0 }}
+                  >
                     <img
                       src={selectedGarmentData.image}
                       alt="Outfit"
-                      className="w-[68%] object-contain mix-blend-multiply opacity-95"
-                      style={{ maxHeight: "38%" }}
+                      className="w-[75%] object-contain"
+                      style={{ maxHeight: "55%", marginTop: "2%" }}
                     />
                   </div>
                 )}
