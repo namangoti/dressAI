@@ -341,7 +341,7 @@ export default function TryOn() {
               <div className="flex gap-2.5 overflow-x-auto hide-scrollbar -mx-4 px-4 pb-2">
                 {GARMENTS.map(g => (
                   <div key={g.id}
-                    onClick={() => { setSelectedId(g.id); setSaved(false); setShowMyPhoto(false); }}
+                    onClick={() => { setSelectedId(g.id); setSaved(false); }}
                     className={`relative flex-shrink-0 w-[68px] rounded-2xl overflow-hidden cursor-pointer border-2 transition-all active:scale-95 ${selectedId === g.id ? "border-primary shadow-md shadow-primary/25 scale-105" : "border-border/40"}`}
                     style={{ aspectRatio: "3/4" }}>
                     <img
