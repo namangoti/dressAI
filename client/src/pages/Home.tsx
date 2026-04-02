@@ -103,7 +103,7 @@ export default function Home() {
   const [showLocationModal, setShowLocationLocationModal] = useState(false);
   const [locationStr, setLocationStr] = useState("Deliver to Delad Village - Surat, Sayan, 394130, Guja...");
   const [searchInput, setSearchInput] = useState("");
-  const [step, setStep] = useState<"search" | "details">("search");
+  const [step, setStep] = useState<"search" | "map" | "details">("search");
   const [addressDetails, setAddressDetails] = useState({
     houseNo: "",
     street: "",
@@ -113,8 +113,12 @@ export default function Home() {
   const handleLocationSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchInput.trim()) {
-      setStep("details");
+      setStep("map");
     }
+  };
+
+  const handleMapConfirm = () => {
+    setStep("details");
   };
 
   const handleFinalSubmit = (e: React.FormEvent) => {
@@ -139,123 +143,169 @@ export default function Home() {
       <div className="p-4 space-y-6 relative">
         {/* Location Modal */}
         {showLocationModal && (
-          <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-4">
-            <div className="bg-background w-full max-w-sm rounded-t-2xl sm:rounded-2xl p-5 space-y-4 animate-in slide-in-from-bottom-full sm:slide-in-from-bottom-0 sm:fade-in duration-200 max-h-[80vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-2 sticky top-0 bg-background z-10 pb-2 border-b border-border/50">
-                <h3 className="font-bold text-lg">
-                  {step === "search" ? "Choose your location" : "Add Address Details"}
-                </h3>
-                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={resetModal}>
-                  <X size={18} />
-                </Button>
-              </div>
+          <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-4 sm:p-0">
+            <div className={`bg-background w-full max-w-sm rounded-t-2xl sm:rounded-2xl space-y-0 animate-in slide-in-from-bottom-full sm:slide-in-from-bottom-0 sm:fade-in duration-200 overflow-hidden flex flex-col ${step === 'map' ? 'h-[85vh]' : 'max-h-[85vh]'}`}>
               
-              {step === "search" ? (
+              {step === "map" ? (
                 <>
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-start gap-3 h-12 border-primary/20 text-primary hover:bg-primary/5 hover:text-primary"
-                    onClick={() => {
-                      if (navigator.geolocation) {
-                        navigator.geolocation.getCurrentPosition(
-                          (position) => {
-                            setSearchInput(`${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}`);
-                            setStep("details");
-                          },
-                          (error) => {
-                            alert("Location access denied. Please type your pincode below.");
-                          }
-                        );
-                      } else {
-                        alert("Geolocation is not supported by this browser.");
-                      }
-                    }}
-                  >
-                    <Navigation size={18} />
-                    Use my current location
-                  </Button>
+                  <div className="absolute top-4 left-4 z-20">
+                    <Button variant="secondary" size="icon" className="h-10 w-10 rounded-full shadow-md bg-background" onClick={() => setStep("search")}>
+                      <ChevronDown className="rotate-90" size={20} />
+                    </Button>
+                  </div>
+                  
+                  {/* Full-bleed Interactive Map Mockup */}
+                  <div className="relative flex-1 bg-[url('https://images.unsplash.com/photo-1524661135-423995f22d0b?w=800&q=80')] bg-cover bg-center min-h-[300px] touch-pan-x touch-pan-y cursor-grab active:cursor-grabbing">
+                    <div className="absolute inset-0 bg-black/5 mix-blend-overlay pointer-events-none"></div>
+                    
+                    {/* Fixed Center Pin */}
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-full flex flex-col items-center pointer-events-none drop-shadow-xl z-10 pb-2">
+                       <div className="bg-black text-white text-[10px] font-bold px-3 py-1.5 rounded-full mb-1 shadow-lg whitespace-nowrap">
+                         Order will be delivered here
+                         <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-black rotate-45"></div>
+                       </div>
+                       <MapPin className="text-primary fill-primary w-10 h-10 animate-bounce" strokeWidth={1} />
+                       <div className="w-3 h-1.5 bg-black/40 rounded-[50%] blur-[1px] -mt-1"></div>
+                    </div>
 
-                  <div className="relative py-3 flex items-center">
-                    <div className="flex-grow border-t border-border/50"></div>
-                    <span className="flex-shrink-0 mx-4 text-muted-foreground text-xs uppercase font-medium">OR</span>
-                    <div className="flex-grow border-t border-border/50"></div>
+                    {/* Recenter Target Button */}
+                    <div className="absolute bottom-6 right-4 z-20">
+                      <Button variant="secondary" size="icon" className="h-12 w-12 rounded-full shadow-lg bg-background text-primary" onClick={() => alert("Recentered to your current location")}>
+                        <Navigation size={20} />
+                      </Button>
+                    </div>
                   </div>
 
-                  <form onSubmit={handleLocationSubmit} className="space-y-3">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Enter Pincode, City, or Area</label>
-                      <input 
-                        type="text" 
-                        value={searchInput}
-                        onChange={(e) => setSearchInput(e.target.value)}
-                        placeholder="e.g., 394130 or Surat" 
-                        className="w-full h-12 bg-secondary/30 border border-border rounded-xl px-4 text-sm focus:outline-none focus:border-primary transition-colors"
-                        autoFocus
-                      />
+                  {/* Bottom Sheet for Map */}
+                  <div className="bg-background p-5 rounded-t-3xl -mt-4 z-20 shadow-[0_-10px_20px_rgba(0,0,0,0.1)] relative">
+                    <div className="w-12 h-1.5 bg-border rounded-full mx-auto mb-5"></div>
+                    <div className="flex items-start gap-3 mb-5">
+                      <MapPin className="text-primary mt-1 shrink-0" size={20} />
+                      <div>
+                        <h4 className="font-bold text-base mb-0.5">Select delivery location</h4>
+                        <p className="text-sm text-muted-foreground line-clamp-2">{searchInput || "Select a precise location on the map"}</p>
+                      </div>
                     </div>
-                    <Button type="submit" className="w-full h-12 rounded-xl font-bold" disabled={!searchInput.trim()}>
-                      Proceed
+                    <Button className="w-full h-14 rounded-xl font-bold text-base shadow-md shadow-primary/20" onClick={handleMapConfirm}>
+                      Confirm Location
                     </Button>
-                  </form>
+                  </div>
                 </>
               ) : (
-                <form onSubmit={handleFinalSubmit} className="space-y-4">
-                  {/* Mock Map View */}
-                  <div className="w-full h-32 bg-secondary/50 rounded-xl border border-border overflow-hidden relative mb-4 flex items-center justify-center bg-[url('https://images.unsplash.com/photo-1524661135-423995f22d0b?w=600&q=80')] bg-cover bg-center">
-                    <div className="absolute inset-0 bg-black/10"></div>
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
-                       <MapPin className="text-primary fill-primary w-8 h-8 drop-shadow-md animate-bounce" />
-                       <div className="w-2 h-1 bg-black/30 rounded-[50%] blur-[1px] mt-1"></div>
-                    </div>
-                    <div className="absolute bottom-2 left-2 right-2 bg-background/90 backdrop-blur-sm p-2 rounded-lg text-xs font-medium border border-border/50 truncate shadow-sm">
-                      {searchInput}
-                    </div>
+                <div className="p-5 flex-1 overflow-y-auto">
+                  <div className="flex justify-between items-center mb-4 sticky top-0 bg-background z-10 pb-2 border-b border-border/50">
+                    <h3 className="font-bold text-lg">
+                      {step === "search" ? "Choose your location" : "Enter complete address"}
+                    </h3>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={resetModal}>
+                      <X size={18} />
+                    </Button>
                   </div>
+                  
+                  {step === "search" ? (
+                    <div className="space-y-4">
+                      <Button 
+                        variant="outline" 
+                        className="w-full justify-start gap-3 h-12 border-primary/20 text-primary hover:bg-primary/5 hover:text-primary rounded-xl"
+                        onClick={() => {
+                          if (navigator.geolocation) {
+                            navigator.geolocation.getCurrentPosition(
+                              (position) => {
+                                setSearchInput(`Lat: ${position.coords.latitude.toFixed(4)}, Lng: ${position.coords.longitude.toFixed(4)}`);
+                                setStep("map");
+                              },
+                              (error) => {
+                                alert("Location access denied. Please type your pincode below.");
+                              }
+                            );
+                          } else {
+                            alert("Geolocation is not supported by this browser.");
+                          }
+                        }}
+                      >
+                        <Navigation size={18} />
+                        <span className="font-medium">Use my current location</span>
+                      </Button>
 
-                  <div className="space-y-3">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-muted-foreground">House No., Building Name *</label>
-                      <input 
-                        type="text" 
-                        required
-                        value={addressDetails.houseNo}
-                        onChange={(e) => setAddressDetails(prev => ({...prev, houseNo: e.target.value}))}
-                        placeholder="e.g. Flat 4B, Shanti Niwas" 
-                        className="w-full h-10 bg-secondary/30 border border-border rounded-lg px-3 text-sm focus:outline-none focus:border-primary"
-                        autoFocus
-                      />
+                      <div className="relative py-2 flex items-center">
+                        <div className="flex-grow border-t border-border/50"></div>
+                        <span className="flex-shrink-0 mx-4 text-muted-foreground text-[10px] uppercase font-bold tracking-wider">OR</span>
+                        <div className="flex-grow border-t border-border/50"></div>
+                      </div>
+
+                      <form onSubmit={handleLocationSubmit} className="space-y-4">
+                        <div className="space-y-2">
+                          <label className="text-sm font-semibold text-foreground/90">Search area, street, or pincode</label>
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+                            <input 
+                              type="text" 
+                              value={searchInput}
+                              onChange={(e) => setSearchInput(e.target.value)}
+                              placeholder="e.g., 394130 or Surat" 
+                              className="w-full h-12 bg-secondary/30 border border-border rounded-xl pl-10 pr-4 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all"
+                              autoFocus
+                            />
+                          </div>
+                        </div>
+                        <Button type="submit" className="w-full h-12 rounded-xl font-bold" disabled={!searchInput.trim()}>
+                          Search Location
+                        </Button>
+                      </form>
                     </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-muted-foreground">Road Name, Area, Colony *</label>
-                      <input 
-                        type="text" 
-                        required
-                        value={addressDetails.street}
-                        onChange={(e) => setAddressDetails(prev => ({...prev, street: e.target.value}))}
-                        placeholder="e.g. MG Road, Near Station" 
-                        className="w-full h-10 bg-secondary/30 border border-border rounded-lg px-3 text-sm focus:outline-none focus:border-primary"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-muted-foreground">Landmark (Optional)</label>
-                      <input 
-                        type="text" 
-                        value={addressDetails.landmark}
-                        onChange={(e) => setAddressDetails(prev => ({...prev, landmark: e.target.value}))}
-                        placeholder="e.g. Opposite City Mall" 
-                        className="w-full h-10 bg-secondary/30 border border-border rounded-lg px-3 text-sm focus:outline-none focus:border-primary"
-                      />
-                    </div>
-                  </div>
-                  <div className="pt-2 flex gap-3">
-                    <Button type="button" variant="outline" className="flex-1 h-12 rounded-xl" onClick={() => setStep("search")}>
-                      Back
-                    </Button>
-                    <Button type="submit" className="flex-1 h-12 rounded-xl font-bold" disabled={!addressDetails.houseNo || !addressDetails.street}>
-                      Save Address
-                    </Button>
-                  </div>
-                </form>
+                  ) : (
+                    <form onSubmit={handleFinalSubmit} className="space-y-5">
+                      <div className="bg-secondary/30 p-3 rounded-xl flex items-start gap-3 border border-border/50">
+                         <MapPin className="text-primary mt-0.5 shrink-0" size={16} />
+                         <div>
+                           <h5 className="text-xs font-semibold text-foreground">Selected Location</h5>
+                           <p className="text-[11px] text-muted-foreground line-clamp-1">{searchInput}</p>
+                         </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-foreground/80 uppercase tracking-wide">House No., Building Name *</label>
+                          <input 
+                            type="text" 
+                            required
+                            value={addressDetails.houseNo}
+                            onChange={(e) => setAddressDetails(prev => ({...prev, houseNo: e.target.value}))}
+                            placeholder="e.g. Flat 4B, Shanti Niwas" 
+                            className="w-full h-12 bg-secondary/20 border border-border rounded-xl px-4 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all"
+                            autoFocus
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-foreground/80 uppercase tracking-wide">Road Name, Area, Colony *</label>
+                          <input 
+                            type="text" 
+                            required
+                            value={addressDetails.street}
+                            onChange={(e) => setAddressDetails(prev => ({...prev, street: e.target.value}))}
+                            placeholder="e.g. MG Road, Near Station" 
+                            className="w-full h-12 bg-secondary/20 border border-border rounded-xl px-4 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-foreground/80 uppercase tracking-wide">Landmark (Optional)</label>
+                          <input 
+                            type="text" 
+                            value={addressDetails.landmark}
+                            onChange={(e) => setAddressDetails(prev => ({...prev, landmark: e.target.value}))}
+                            placeholder="e.g. Opposite City Mall" 
+                            className="w-full h-12 bg-secondary/20 border border-border rounded-xl px-4 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all"
+                          />
+                        </div>
+                      </div>
+                      <div className="pt-2 flex gap-3">
+                        <Button type="submit" className="w-full h-14 rounded-xl font-bold text-base shadow-md shadow-primary/20" disabled={!addressDetails.houseNo || !addressDetails.street}>
+                          Save Address
+                        </Button>
+                      </div>
+                    </form>
+                  )}
+                </div>
               )}
             </div>
           </div>
