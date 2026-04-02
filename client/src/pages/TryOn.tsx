@@ -49,6 +49,16 @@ const SKIN_TONES = [
   { key: "dark",   color: "#4A2912" },
 ];
 
+/* Load an image element from any src */
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
 /* Convert a local asset src to base64 */
 async function imageToBase64(src: string): Promise<string> {
   const resp = await fetch(src);
@@ -61,7 +71,7 @@ async function imageToBase64(src: string): Promise<string> {
   });
 }
 
-/* Resize + compress a data-URL image to max 1024px wide, JPEG quality 0.85 */
+/* Resize + compress a data-URL image, JPEG */
 function compressImage(dataUrl: string, maxSize = 1024, quality = 0.85): Promise<string> {
   return new Promise(resolve => {
     const img = new Image();
@@ -70,13 +80,94 @@ function compressImage(dataUrl: string, maxSize = 1024, quality = 0.85): Promise
       const w = Math.round(img.width * scale);
       const h = Math.round(img.height * scale);
       const canvas = document.createElement("canvas");
-      canvas.width = w;
-      canvas.height = h;
+      canvas.width = w; canvas.height = h;
       canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
       resolve(canvas.toDataURL("image/jpeg", quality));
     };
     img.src = dataUrl;
   });
+}
+
+/* Flood-fill background removal from image borders */
+function stripBackground(imgData: ImageData): ImageData {
+  const { width, height, data } = imgData;
+  const visited = new Uint8Array(width * height);
+  const queue: number[] = [];
+
+  // Seed from all border pixels
+  for (let x = 0; x < width; x++) {
+    [x, (height - 1) * width + x].forEach(i => { if (!visited[i]) { visited[i] = 1; queue.push(i); } });
+  }
+  for (let y = 1; y < height - 1; y++) {
+    [y * width, y * width + width - 1].forEach(i => { if (!visited[i]) { visited[i] = 1; queue.push(i); } });
+  }
+
+  // Sample background colour from top-left corner
+  const bgR = data[0], bgG = data[1], bgB = data[2];
+  const out = new ImageData(new Uint8ClampedArray(data), width, height);
+  const THRESH = 40;
+
+  let head = 0;
+  while (head < queue.length) {
+    const idx = queue[head++];
+    const p = idx * 4;
+    const dr = Math.abs(data[p] - bgR), dg = Math.abs(data[p + 1] - bgG), db = Math.abs(data[p + 2] - bgB);
+    if (dr + dg + db > THRESH) continue;
+    out.data[p + 3] = 0; // transparent
+    const x = idx % width, y = (idx / width) | 0;
+    const nb = [x > 0 && idx - 1, x < width - 1 && idx + 1, y > 0 && idx - width, y < height - 1 && idx + width];
+    nb.forEach(n => { if (n !== false && !visited[n as number]) { visited[n as number] = 1; queue.push(n as number); } });
+  }
+  return out;
+}
+
+/* Canvas-based try-on: overlay garment on person photo, instant, no API needed */
+async function canvasTryOn(
+  personDataUrl: string,
+  garmentSrc: string,
+  garmentType: "tops" | "bottoms" = "tops"
+): Promise<string> {
+  // Load person at natural resolution; garment from local asset (no CORS)
+  const garmentBase64 = await imageToBase64(garmentSrc);
+  const [personImg, garmentImg] = await Promise.all([
+    loadImage(personDataUrl),
+    loadImage(garmentBase64),
+  ]);
+
+  // Process garment — strip background
+  const gCan = document.createElement("canvas");
+  gCan.width = garmentImg.width; gCan.height = garmentImg.height;
+  const gCtx = gCan.getContext("2d", { willReadFrequently: true })!;
+  gCtx.drawImage(garmentImg, 0, 0);
+  gCtx.putImageData(stripBackground(gCtx.getImageData(0, 0, gCan.width, gCan.height)), 0, 0);
+
+  // Output canvas at person image dimensions
+  const canvas = document.createElement("canvas");
+  canvas.width = personImg.width; canvas.height = personImg.height;
+  const ctx = canvas.getContext("2d")!;
+
+  ctx.drawImage(personImg, 0, 0);
+
+  // Position garment over the correct body zone
+  const yStart = garmentType === "tops" ? personImg.height * 0.17 : personImg.height * 0.47;
+  const yEnd   = garmentType === "tops" ? personImg.height * 0.62 : personImg.height * 0.97;
+  const garH   = yEnd - yStart;
+  const garW   = garH * (garmentImg.width / garmentImg.height);
+  const garX   = (personImg.width - garW) / 2;
+
+  ctx.globalAlpha = 0.90;
+  ctx.drawImage(gCan, garX, yStart, garW, garH);
+  ctx.globalAlpha = 1;
+
+  // "Smart Preview" watermark
+  ctx.fillStyle = "rgba(0,0,0,0.45)";
+  ctx.fillRect(0, personImg.height - 28, personImg.width, 28);
+  ctx.fillStyle = "#fff";
+  ctx.font = `bold ${Math.round(personImg.height * 0.025)}px sans-serif`;
+  ctx.textAlign = "center";
+  ctx.fillText("Smart Preview — upgrade to AI for photorealistic result", personImg.width / 2, personImg.height - 10);
+
+  return canvas.toDataURL("image/jpeg", 0.92);
 }
 
 /* ════════════════════════════════════════════════════════════ */
@@ -96,8 +187,10 @@ export default function TryOn() {
   const [selectedId, setSelectedId] = useState(1);
   const [saved, setSaved]           = useState(false);
   const [aiResult, setAiResult]     = useState<string | null>(null);
+  const [resultMode, setResultMode] = useState<"preview" | "ai">("preview");
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState<string | null>(null);
+  const [billingError, setBillingError] = useState(false);
   const [elapsed, setElapsed]       = useState(0);
   const timerRef                    = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -127,37 +220,55 @@ export default function TryOn() {
     if (!uploadedPhoto) return;
     setLoading(true);
     setError(null);
+    setBillingError(false);
     setAiResult(null);
 
+    const g = GARMENTS.find(x => x.id === garmentId)!;
+
+    // ── Step 1: Instant canvas preview (no API, always works) ──
     try {
-      const g = GARMENTS.find(x => x.id === garmentId)!;
-      // Compress both images before sending
+      const preview = await canvasTryOn(uploadedPhoto, g.image, "tops");
+      setAiResult(preview);
+      setResultMode("preview");
+      setLoading(false); // show the preview immediately
+    } catch {
+      // canvas failed somehow — keep loading
+    }
+
+    // ── Step 2: Attempt real AI in the background ──
+    try {
       const [personCompressed, garmentBase64] = await Promise.all([
         compressImage(uploadedPhoto, 768, 0.82),
         imageToBase64(g.image),
       ]);
 
       const ctrl = new AbortController();
-      const clientTimer = setTimeout(() => ctrl.abort(), 135_000); // 135 s hard limit
+      const clientTimer = setTimeout(() => ctrl.abort(), 120_000);
       const resp = await fetch("/api/tryon", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: ctrl.signal,
-        body: JSON.stringify({
-          personImage: personCompressed,
-          garmentImage: garmentBase64,
-        }),
+        body: JSON.stringify({ personImage: personCompressed, garmentImage: garmentBase64 }),
       }).finally(() => clearTimeout(clientTimer));
 
       const data = await resp.json();
-      if (!resp.ok) throw new Error(data.error || "Failed");
-      setAiResult(data.resultUrl);
-    } catch (err: any) {
-      if (err.name === "AbortError") {
-        setError("Took too long — please try again");
-      } else {
-        setError(err.message || "Something went wrong");
+
+      if (resp.status === 402) {
+        // Billing issue — keep canvas preview, show billing note
+        setBillingError(true);
+        return;
       }
+      if (!resp.ok) throw new Error(data.error || "AI generation failed");
+
+      // AI succeeded — upgrade the displayed image
+      setAiResult(data.resultUrl);
+      setResultMode("ai");
+    } catch (err: any) {
+      // If we already have a canvas preview, just set billing/error info silently
+      if (err.name === "AbortError") {
+        setBillingError(false); // timed out, not billing
+      }
+      // Don't overwrite the canvas preview with an error message
     } finally {
       setLoading(false);
     }
@@ -168,6 +279,8 @@ export default function TryOn() {
     setSaved(false);
     setAiResult(null);
     setError(null);
+    setBillingError(false);
+    setResultMode("preview");
   }
 
   /* ════════════════════════════════════════════════════════════ */
@@ -407,10 +520,16 @@ export default function TryOn() {
                     <img src={garment.image} alt="" className="w-4 h-4 object-contain" />
                     <span className="text-white text-[10px] font-semibold">{garment.name}</span>
                   </div>
-                  {aiResult && (
+                  {aiResult && resultMode === "ai" && (
                     <div className="absolute top-3 right-3 bg-primary/90 backdrop-blur-sm rounded-full px-2.5 py-1 flex items-center gap-1">
                       <Sparkles size={10} className="text-yellow-300" />
                       <span className="text-white text-[10px] font-bold">AI Result</span>
+                    </div>
+                  )}
+                  {aiResult && resultMode === "preview" && (
+                    <div className="absolute top-3 right-3 bg-amber-500/90 backdrop-blur-sm rounded-full px-2.5 py-1 flex items-center gap-1">
+                      <Sparkles size={10} className="text-white" />
+                      <span className="text-white text-[10px] font-bold">Smart Preview</span>
                     </div>
                   )}
                 </>
@@ -431,17 +550,29 @@ export default function TryOn() {
               )}
             </div>
 
-            {/* AI Try-On button (only when photo uploaded) */}
+            {/* Try-On button + billing note */}
             {uploadedPhoto && !loading && (
-              <div className="mx-4 mt-2 shrink-0">
+              <div className="mx-4 mt-2 shrink-0 flex flex-col gap-1.5">
                 <Button
                   className="w-full rounded-full h-11 gap-2 shadow-md shadow-primary/20"
                   onClick={() => runAiTryOn(selectedId)}
                   disabled={loading}
                 >
                   <Sparkles size={16} />
-                  {aiResult ? "Regenerate AI Try-On" : "Generate AI Try-On"}
+                  {aiResult ? "Regenerate Try-On" : "Generate Try-On"}
                 </Button>
+                {billingError && (
+                  <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-2xl px-3 py-2">
+                    <AlertCircle size={14} className="text-amber-500 shrink-0 mt-0.5" />
+                    <div className="text-[10px] text-amber-800 leading-snug">
+                      <span className="font-semibold">AI try-on needs Replicate credits.</span>{" "}
+                      Add $5+ at{" "}
+                      <a href="https://replicate.com/account/billing#billing" target="_blank" rel="noopener noreferrer"
+                        className="underline font-semibold text-amber-700">replicate.com/billing</a>{" "}
+                      for photorealistic results. Smart Preview shown above.
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

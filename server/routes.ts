@@ -1,16 +1,14 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 
-// Abort a fetch if it takes longer than `ms` milliseconds
 function fetchWithTimeout(url: string, opts: RequestInit, ms: number) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), ms);
   return fetch(url, { ...opts, signal: ctrl.signal }).finally(() => clearTimeout(timer));
 }
 
-const REPLICATE_TOKEN   = () => process.env.REPLICATE_API_TOKEN ?? "";
-const MODEL_ENDPOINT    = "https://api.replicate.com/v1/models/cuuupid/idm-vton/predictions";
-const MAX_POLL_MS       = 110_000; // 110 s total polling budget
+const MODEL_VERSION = "0513734a452173b8173e907e3a59d19a36266e55b48528559432bd21c7d7e985";
+const MAX_POLL_MS   = 110_000;
 
 export async function registerRoutes(
   httpServer: Server,
@@ -18,7 +16,6 @@ export async function registerRoutes(
 ): Promise<Server> {
 
   app.post("/api/tryon", async (req, res) => {
-    // Hard server-side response timeout
     res.setTimeout(125_000, () => {
       if (!res.headersSent) res.status(504).json({ error: "Server timed out — please try again." });
     });
@@ -32,16 +29,15 @@ export async function registerRoutes(
         return res.status(400).json({ error: "personImage and garmentImage are required" });
       }
 
-      const token = REPLICATE_TOKEN();
+      const token = process.env.REPLICATE_API_TOKEN;
       if (!token) return res.status(500).json({ error: "REPLICATE_API_TOKEN not configured" });
 
-      console.log("[tryon] Starting IDM-VTON prediction…");
+      console.log("[tryon] Starting prediction…");
 
-      // Fire the prediction — ask Replicate to wait up to 55 s synchronously
       let startResp: Response;
       try {
         startResp = await fetchWithTimeout(
-          MODEL_ENDPOINT,
+          "https://api.replicate.com/v1/predictions",
           {
             method: "POST",
             headers: {
@@ -50,64 +46,72 @@ export async function registerRoutes(
               "Prefer": "wait=55",
             },
             body: JSON.stringify({
+              version: MODEL_VERSION,
               input: {
-                human_img:      personImage,
-                garm_img:       garmentImage,
-                garment_des:    "a clothing item",
-                is_checked:     true,
+                human_img:       personImage,
+                garm_img:        garmentImage,
+                garment_des:     "a clothing item",
+                is_checked:      true,
                 is_checked_crop: false,
-                denoise_steps:  20,
-                seed:           42,
+                denoise_steps:   20,
+                seed:            42,
               },
             }),
           },
-          60_000   // 60 s timeout on this single fetch
+          60_000
         );
       } catch (e: any) {
-        console.error("[tryon] Initial fetch error:", e.message);
+        console.error("[tryon] Fetch error:", e.message);
         return res.status(502).json({ error: "Could not reach AI service — please try again." });
       }
 
       const prediction = await startResp.json() as any;
+
+      // Billing error — return a specific type so the client can handle it
+      if (startResp.status === 402) {
+        console.error("[tryon] Insufficient Replicate credits");
+        return res.status(402).json({
+          error: "Replicate account has insufficient credits.",
+          type: "billing",
+          billingUrl: "https://replicate.com/account/billing#billing",
+        });
+      }
 
       if (!startResp.ok) {
         console.error("[tryon] API error:", JSON.stringify(prediction).slice(0, 300));
         return res.status(502).json({ error: prediction?.detail || "Replicate API error" });
       }
 
-      console.log(`[tryon] Prediction id=${prediction.id} status=${prediction.status}`);
+      console.log(`[tryon] id=${prediction.id} status=${prediction.status}`);
 
-      // Succeeded synchronously (Prefer:wait worked)
       if (prediction.status === "succeeded" && prediction.output) {
         const out = Array.isArray(prediction.output) ? prediction.output[0] : prediction.output;
-        console.log("[tryon] Immediate success:", out);
         return res.json({ resultUrl: out });
       }
       if (prediction.status === "failed" || prediction.status === "canceled") {
-        return res.status(502).json({ error: prediction.error || "Prediction failed immediately" });
+        return res.status(502).json({ error: prediction.error || "Prediction failed" });
       }
 
-      // Poll until done or budget exhausted
-      const predId   = prediction.id;
-      const pollUrl  = `https://api.replicate.com/v1/predictions/${predId}`;
+      // Poll
+      const pollUrl  = `https://api.replicate.com/v1/predictions/${prediction.id}`;
       const deadline = Date.now() + MAX_POLL_MS;
       let attempt    = 0;
 
       while (Date.now() < deadline) {
         await new Promise(r => setTimeout(r, 3000));
         attempt++;
-        console.log(`[tryon] Poll #${attempt} (${Math.round((deadline - Date.now()) / 1000)}s left)…`);
+        console.log(`[tryon] Poll #${attempt}…`);
 
         let poll: any;
         try {
-          const pollResp = await fetchWithTimeout(
+          const pr = await fetchWithTimeout(
             pollUrl,
             { headers: { Authorization: `Bearer ${token}` } },
             12_000
           );
-          poll = await pollResp.json();
+          poll = await pr.json();
         } catch (e: any) {
-          console.warn("[tryon] Poll network error:", e.message, "— retrying");
+          console.warn("[tryon] Poll error:", e.message);
           continue;
         }
 
@@ -115,19 +119,17 @@ export async function registerRoutes(
 
         if (poll.status === "succeeded") {
           const out = Array.isArray(poll.output) ? poll.output[0] : poll.output;
-          console.log("[tryon] Done:", out);
           return res.json({ resultUrl: out });
         }
         if (poll.status === "failed" || poll.status === "canceled") {
-          return res.status(502).json({ error: poll.error || "Try-on generation failed" });
+          return res.status(502).json({ error: poll.error || "Generation failed" });
         }
       }
 
-      console.error("[tryon] Timed out after polling budget exhausted");
       return res.status(504).json({ error: "AI took too long — please try again." });
 
     } catch (err: any) {
-      console.error("[tryon] Unexpected error:", err);
+      console.error("[tryon] Error:", err);
       if (!res.headersSent) res.status(500).json({ error: err.message || "Internal server error" });
     }
   });
