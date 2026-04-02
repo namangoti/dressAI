@@ -1,7 +1,9 @@
 import MobileLayout from "@/components/layout/MobileLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Bell, Heart, User, MapPin, ChevronDown } from "lucide-react";
+import { Search, Bell, Heart, User, MapPin, ChevronDown, X, Navigation } from "lucide-react";
 import { Link } from "wouter";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
 
 import garment1 from "@/assets/images/tshirt-black.png";
 import garment2 from "@/assets/images/tshirt-white.png";
@@ -98,27 +100,90 @@ const tabsData = {
 };
 
 export default function Home() {
+  const [showLocationModal, setShowLocationLocationModal] = useState(false);
+  const [locationStr, setLocationStr] = useState("Deliver to Delad Village - Surat, Sayan, 394130, Guja...");
+  const [searchInput, setSearchInput] = useState("");
+
+  const handleLocationSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchInput.trim()) {
+      setLocationStr(`Deliver to ${searchInput}`);
+      setShowLocationLocationModal(false);
+      setSearchInput("");
+    }
+  };
+
   return (
     <MobileLayout>
-      <div className="p-4 space-y-6">
+      <div className="p-4 space-y-6 relative">
+        {/* Location Modal */}
+        {showLocationModal && (
+          <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-4">
+            <div className="bg-background w-full max-w-sm rounded-t-2xl sm:rounded-2xl p-5 space-y-4 animate-in slide-in-from-bottom-full sm:slide-in-from-bottom-0 sm:fade-in duration-200">
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="font-bold text-lg">Choose your location</h3>
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setShowLocationLocationModal(false)}>
+                  <X size={18} />
+                </Button>
+              </div>
+              
+              <Button 
+                variant="outline" 
+                className="w-full justify-start gap-3 h-12 border-primary/20 text-primary hover:bg-primary/5 hover:text-primary"
+                onClick={() => {
+                  if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                      (position) => {
+                        setLocationStr(`Current Location (Lat: ${position.coords.latitude.toFixed(2)}, Lng: ${position.coords.longitude.toFixed(2)})`);
+                        setShowLocationLocationModal(false);
+                      },
+                      (error) => {
+                        alert("Location access denied. Please type your pincode below.");
+                      }
+                    );
+                  } else {
+                    alert("Geolocation is not supported by this browser.");
+                  }
+                }}
+              >
+                <Navigation size={18} />
+                Use my current location
+              </Button>
+
+              <div className="relative py-3 flex items-center">
+                <div className="flex-grow border-t border-border/50"></div>
+                <span className="flex-shrink-0 mx-4 text-muted-foreground text-xs uppercase font-medium">OR</span>
+                <div className="flex-grow border-t border-border/50"></div>
+              </div>
+
+              <form onSubmit={handleLocationSubmit} className="space-y-3">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Enter Pincode or City</label>
+                  <input 
+                    type="text" 
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                    placeholder="e.g., 394130 or Surat" 
+                    className="w-full h-12 bg-secondary/30 border border-border rounded-xl px-4 text-sm focus:outline-none focus:border-primary transition-colors"
+                    autoFocus
+                  />
+                </div>
+                <Button type="submit" className="w-full h-12 rounded-xl font-bold" disabled={!searchInput.trim()}>
+                  Confirm Location
+                </Button>
+              </form>
+            </div>
+          </div>
+        )}
+
         <header className="space-y-4 pt-2">
           {/* Location */}
-          <div className="flex items-center gap-1.5 text-xs font-medium text-foreground/80 cursor-pointer hover:bg-secondary/50 p-1.5 rounded-lg w-max transition-colors" onClick={() => {
-            if (navigator.geolocation) {
-              navigator.geolocation.getCurrentPosition(
-                (position) => {
-                  alert(`Location access requested.\n\nIn a full app, this would use your coordinates:\nLat: ${position.coords.latitude}\nLng: ${position.coords.longitude}\n\nto fetch your exact address.`);
-                },
-                (error) => {
-                  alert("Location access denied or unavailable. Please check your browser settings.");
-                }
-              );
-            } else {
-              alert("Geolocation is not supported by this browser.");
-            }
-          }}>
+          <div 
+            className="flex items-center gap-1.5 text-xs font-medium text-foreground/80 cursor-pointer hover:bg-secondary/50 p-1.5 rounded-lg w-max transition-colors" 
+            onClick={() => setShowLocationLocationModal(true)}
+          >
             <MapPin size={14} className="shrink-0" />
-            <span className="truncate max-w-[250px]">Deliver to Delad Village - Surat, Sayan, 394130, Guja...</span>
+            <span className="truncate max-w-[250px]">{locationStr}</span>
             <ChevronDown size={14} className="shrink-0" />
           </div>
 
