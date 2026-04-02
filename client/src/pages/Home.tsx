@@ -219,7 +219,21 @@ export default function Home() {
 
                     {/* Recenter Target Button */}
                     <div className="absolute bottom-6 right-4 z-20">
-                      <Button variant="secondary" size="icon" className="h-12 w-12 rounded-full shadow-lg bg-background text-primary" onClick={() => alert("Recentered to your current location")}>
+                      <Button 
+                        variant="secondary" 
+                        size="icon" 
+                        className="h-12 w-12 rounded-full shadow-lg bg-background text-primary" 
+                        onClick={() => {
+                          if (navigator.geolocation) {
+                            navigator.geolocation.getCurrentPosition(
+                              (position) => {
+                                setMapCenter([position.coords.latitude, position.coords.longitude]);
+                                setSearchInput(`Lat: ${position.coords.latitude.toFixed(4)}, Lng: ${position.coords.longitude.toFixed(4)}`);
+                              }
+                            );
+                          }
+                        }}
+                      >
                         <Navigation size={20} />
                       </Button>
                     </div>
@@ -260,6 +274,7 @@ export default function Home() {
                           if (navigator.geolocation) {
                             navigator.geolocation.getCurrentPosition(
                               (position) => {
+                                setMapCenter([position.coords.latitude, position.coords.longitude]);
                                 setSearchInput(`Lat: ${position.coords.latitude.toFixed(4)}, Lng: ${position.coords.longitude.toFixed(4)}`);
                                 setStep("map");
                               },
