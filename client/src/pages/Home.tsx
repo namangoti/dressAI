@@ -22,7 +22,8 @@ export default function Home() {
       <div className="p-6 space-y-8">
         <header className="flex justify-between items-center pt-2">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">FitCheck</h1>
+            <h1 className="text-2xl font-bold tracking-tight">DressAI
+</h1>
             <p className="text-muted-foreground">Welcome back, Alex</p>
           </div>
           <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 overflow-hidden">
