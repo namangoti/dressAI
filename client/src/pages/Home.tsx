@@ -103,10 +103,23 @@ export default function Home() {
       <div className="p-4 space-y-6">
         <header className="space-y-4 pt-2">
           {/* Location */}
-          <div className="flex items-center gap-1.5 text-xs font-medium text-foreground/80">
-            <MapPin size={14} />
+          <div className="flex items-center gap-1.5 text-xs font-medium text-foreground/80 cursor-pointer hover:bg-secondary/50 p-1.5 rounded-lg w-max transition-colors" onClick={() => {
+            if (navigator.geolocation) {
+              navigator.geolocation.getCurrentPosition(
+                (position) => {
+                  alert(`Location access requested.\n\nIn a full app, this would use your coordinates:\nLat: ${position.coords.latitude}\nLng: ${position.coords.longitude}\n\nto fetch your exact address.`);
+                },
+                (error) => {
+                  alert("Location access denied or unavailable. Please check your browser settings.");
+                }
+              );
+            } else {
+              alert("Geolocation is not supported by this browser.");
+            }
+          }}>
+            <MapPin size={14} className="shrink-0" />
             <span className="truncate max-w-[250px]">Deliver to Delad Village - Surat, Sayan, 394130, Guja...</span>
-            <ChevronDown size={14} />
+            <ChevronDown size={14} className="shrink-0" />
           </div>
 
           {/* Search and Icons */}
