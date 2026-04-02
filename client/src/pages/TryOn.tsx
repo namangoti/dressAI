@@ -41,29 +41,29 @@ const AVATARS: Record<Gender, Record<FitType, AvatarDef>> = {
   man: {
     slim: {
       url: "https://images.unsplash.com/photo-1552374196-1ab2a1c593e8?w=600&q=80",
-      label: "Slim",    shoulderY: 0.16, shoulderFrac: 0.62, torsoHeight: 0.32,
+      label: "Slim",    shoulderY: 0.43, shoulderFrac: 0.62, torsoHeight: 0.38,
     },
     regular: {
       url: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=600&q=80",
-      label: "Regular", shoulderY: 0.18, shoulderFrac: 0.68, torsoHeight: 0.33,
+      label: "Regular", shoulderY: 0.43, shoulderFrac: 0.68, torsoHeight: 0.38,
     },
     plus: {
       url: "https://images.unsplash.com/photo-1583195764036-6dc248ac07d9?w=600&q=80",
-      label: "Plus",    shoulderY: 0.17, shoulderFrac: 0.74, torsoHeight: 0.34,
+      label: "Plus",    shoulderY: 0.43, shoulderFrac: 0.74, torsoHeight: 0.38,
     },
   },
   woman: {
     slim: {
       url: "https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=600&q=80",
-      label: "Slim",    shoulderY: 0.17, shoulderFrac: 0.57, torsoHeight: 0.30,
+      label: "Slim",    shoulderY: 0.43, shoulderFrac: 0.57, torsoHeight: 0.36,
     },
     regular: {
       url: "https://images.unsplash.com/photo-1617922001439-4a2e6562f328?w=600&q=80",
-      label: "Regular", shoulderY: 0.18, shoulderFrac: 0.62, torsoHeight: 0.31,
+      label: "Regular", shoulderY: 0.43, shoulderFrac: 0.62, torsoHeight: 0.36,
     },
     plus: {
       url: "https://images.unsplash.com/photo-1594381898411-846e7d193883?w=600&q=80",
-      label: "Plus",    shoulderY: 0.17, shoulderFrac: 0.68, torsoHeight: 0.32,
+      label: "Plus",    shoulderY: 0.43, shoulderFrac: 0.68, torsoHeight: 0.36,
     },
   },
 };
@@ -121,7 +121,7 @@ function renderTryOn(
 
   // --- compute garment placement ---
   const def = uploaded
-    ? { shoulderY: 0.27, shoulderFrac: 0.68, torsoHeight: 0.32 }
+    ? { shoulderY: 0.43, shoulderFrac: 0.68, torsoHeight: 0.38 }
     : avatarDef;
 
   const gW = W * def.shoulderFrac * sizeScale;
