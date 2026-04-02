@@ -61,10 +61,7 @@ export default function Home() {
           <div className="flex gap-4 overflow-x-auto hide-scrollbar pt-2 pb-1">
             {[
               { name: "Fashion", img: "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=100&q=80" },
-              { name: "Beauty", img: "https://images.unsplash.com/photo-1596462502278-27bf85033e5a?w=100&q=80" },
               { name: "Footwear", img: "https://images.unsplash.com/photo-1549298916-b41d501d3772?w=100&q=80" },
-              { name: "Homeliving", img: "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=100&q=80" },
-              { name: "Accessories", img: "https://images.unsplash.com/photo-1523206489230-c012c64b2b48?w=100&q=80" },
             ].map((cat, i) => (
               <div key={i} className="flex flex-col items-center gap-1.5 shrink-0">
                 <div className={`w-16 h-16 rounded-[18px] overflow-hidden border ${i === 0 ? 'border-primary p-0.5' : 'border-border/50'}`}>
@@ -79,6 +76,17 @@ export default function Home() {
         </header>
 
         <section>
+          {/* Banner ad area similar to reference */}
+          <div className="bg-[#FFE5B4] border border-[#FFD58F] rounded-xl p-4 mb-6 flex justify-between items-center shadow-sm">
+            <h2 className="text-xl font-extrabold text-[#D9381E] uppercase tracking-wider">FLAT ₹300 OFF</h2>
+            <div className="flex flex-col items-end">
+              <span className="text-[10px] font-bold uppercase text-foreground/80 mb-0.5">USE CODE</span>
+              <div className="bg-black text-white px-2 py-1 rounded text-xs font-bold tracking-wider">
+                DRESSAI300
+              </div>
+            </div>
+          </div>
+          
           <div className="bg-primary/5 border border-primary/10 rounded-3xl p-6 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl -mr-10 -mt-10" />
             <div className="relative z-10">
