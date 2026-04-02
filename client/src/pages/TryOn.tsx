@@ -247,14 +247,14 @@ export default function TryOn() {
                 className="w-full h-full object-cover object-top"
               />
 
-              {/* Garment overlay — covers torso area using absolute positioning */}
+              {/* Garment overlay — placed on the chest/torso */}
               {selectedGarmentData && (
-                <div className="absolute inset-0 flex items-start justify-center pointer-events-none">
+                <div className="absolute inset-0 flex items-end justify-center pointer-events-none" style={{ paddingBottom: "28%" }}>
                   <img
                     src={selectedGarmentData.image}
                     alt={selectedGarmentData.name}
-                    className="w-[72%] mt-[22%] object-contain mix-blend-multiply opacity-95 drop-shadow-xl"
-                    style={{ maxHeight: "45%" }}
+                    className="w-[68%] object-contain mix-blend-multiply opacity-95 drop-shadow-xl"
+                    style={{ maxHeight: "38%" }}
                   />
                 </div>
               )}
@@ -303,12 +303,12 @@ export default function TryOn() {
               <div className="flex-1 rounded-2xl overflow-hidden border-2 border-primary aspect-[3/4] relative bg-white">
                 <img src={selectedModel || ""} alt="Result" className="w-full h-full object-cover object-top" />
                 {selectedGarmentData && (
-                  <div className="absolute inset-0 flex items-start justify-center pointer-events-none">
+                  <div className="absolute inset-0 flex items-end justify-center pointer-events-none" style={{ paddingBottom: "28%" }}>
                     <img
                       src={selectedGarmentData.image}
                       alt="Outfit"
-                      className="w-[75%] mt-[22%] object-contain mix-blend-multiply opacity-95"
-                      style={{ maxHeight: "45%" }}
+                      className="w-[68%] object-contain mix-blend-multiply opacity-95"
+                      style={{ maxHeight: "38%" }}
                     />
                   </div>
                 )}
