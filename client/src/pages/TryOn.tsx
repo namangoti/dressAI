@@ -588,7 +588,7 @@ export default function TryOn() {
               {/* Image layer */}
               {tryOnUrl ? (
                 <img src={tryOnUrl} alt="Try-On"
-                  className={`w-full h-full object-cover object-top transition-opacity duration-200 ${compositing ? "opacity-60" : "opacity-100"}`} />
+                  className={`w-full h-full ${tryOnMode === "ai" ? "object-contain" : "object-cover object-top"} transition-opacity duration-200 ${compositing ? "opacity-60" : "opacity-100"}`} />
               ) : (
                 <img src={fallbackUrl} alt={garment.name}
                   className="w-full h-full object-cover object-top" />
@@ -647,7 +647,7 @@ export default function TryOn() {
                       ? "bg-emerald-600/90"
                       : "bg-primary/90"}`}>
                   {tryOnMode === "ai"
-                    ? <><Sparkles size={10} className="text-yellow-300" /><span className="text-white text-[10px] font-bold">AI Result</span></>
+                    ? <><Sparkles size={10} className="text-yellow-300" /><span className="text-white text-[10px] font-bold">Final Try-On</span></>
                     : poseStatus === "done"
                       ? <><ScanLine size={10} className="text-white" /><span className="text-white text-[10px] font-bold">Body-fit</span></>
                       : <><Sparkles size={10} className="text-yellow-300" /><span className="text-white text-[10px] font-bold">Preview</span></>
@@ -713,7 +713,7 @@ export default function TryOn() {
                   {aiLoading ? (
                     <><Loader2 size={15} className="animate-spin" /> Generating AI image… {elapsed}s</>
                   ) : (
-                    <><Wand2 size={15} /> Generate AI Image</>
+                    <><Wand2 size={15} /> Generate Final Try-On</>
                   )}
                 </button>
                 {!aiLoading && (

@@ -7,7 +7,6 @@ function fetchWithTimeout(url: string, opts: RequestInit, ms: number) {
   return fetch(url, { ...opts, signal: ctrl.signal }).finally(() => clearTimeout(timer));
 }
 
-const MODEL_VERSION = "0513734a452173b8173e907e3a59d19a36266e55b48528559432bd21c7d7e985";
 const MAX_POLL_MS   = 110_000;
 
 export async function registerRoutes(
@@ -37,7 +36,7 @@ export async function registerRoutes(
       let startResp: Response;
       try {
         startResp = await fetchWithTimeout(
-          "https://api.replicate.com/v1/predictions",
+          "https://api.replicate.com/v1/models/yisol/idm-vton/predictions",
           {
             method: "POST",
             headers: {
@@ -46,7 +45,6 @@ export async function registerRoutes(
               "Prefer": "wait=55",
             },
             body: JSON.stringify({
-              version: MODEL_VERSION,
               input: {
                 human_img:       personImage,
                 garm_img:        garmentImage,
