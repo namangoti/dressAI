@@ -31,12 +31,36 @@ export async function registerRoutes(
       const token = process.env.REPLICATE_API_TOKEN;
       if (!token) return res.status(500).json({ error: "REPLICATE_API_TOKEN not configured" });
 
+      console.log("[tryon] Fetching latest model version…");
+
+      // Step 1: resolve the latest published version of yisol/idm-vton
+      let version: string;
+      try {
+        const vr = await fetchWithTimeout(
+          "https://api.replicate.com/v1/models/yisol/idm-vton/versions",
+          { headers: { Authorization: `Bearer ${token}` } },
+          15_000
+        );
+        if (!vr.ok) {
+          const body = await vr.json().catch(() => ({})) as any;
+          console.error("[tryon] Version fetch failed:", vr.status, JSON.stringify(body).slice(0, 200));
+          return res.status(502).json({ error: `Could not load AI model (HTTP ${vr.status}). Check your Replicate account and billing.` });
+        }
+        const vd = await vr.json() as any;
+        version = vd?.results?.[0]?.id;
+        if (!version) throw new Error("No published versions found for yisol/idm-vton");
+        console.log("[tryon] Using version:", version);
+      } catch (e: any) {
+        console.error("[tryon] Version fetch error:", e.message);
+        return res.status(502).json({ error: "Could not reach Replicate — check your network or API token." });
+      }
+
       console.log("[tryon] Starting prediction…");
 
       let startResp: Response;
       try {
         startResp = await fetchWithTimeout(
-          "https://api.replicate.com/v1/models/yisol/idm-vton/predictions",
+          "https://api.replicate.com/v1/predictions",
           {
             method: "POST",
             headers: {
@@ -45,6 +69,7 @@ export async function registerRoutes(
               "Prefer": "wait=55",
             },
             body: JSON.stringify({
+              version,
               input: {
                 human_img:       personImage,
                 garm_img:        garmentImage,
@@ -65,11 +90,21 @@ export async function registerRoutes(
 
       const prediction = await startResp.json() as any;
 
-      // Billing error — return a specific type so the client can handle it
+      // Billing / credit errors
       if (startResp.status === 402) {
-        console.error("[tryon] Insufficient Replicate credits");
+        console.error("[tryon] Insufficient Replicate credits (402)");
         return res.status(402).json({
           error: "Replicate account has insufficient credits.",
+          type: "billing",
+          billingUrl: "https://replicate.com/account/billing#billing",
+        });
+      }
+
+      // Rate-limited — treat same as billing so client shows the add-credit prompt
+      if (startResp.status === 429) {
+        console.error("[tryon] Rate limited (429) — account needs more credits");
+        return res.status(402).json({
+          error: "Replicate rate limit hit. Add at least $5 credit to your account to enable normal usage.",
           type: "billing",
           billingUrl: "https://replicate.com/account/billing#billing",
         });

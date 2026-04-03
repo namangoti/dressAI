@@ -713,11 +713,12 @@ export default function TryOn() {
                 {billingError && (
                   <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-2xl px-3 py-2.5">
                     <AlertCircle size={14} className="text-amber-600 mt-0.5 shrink-0" />
-                    <div className="text-xs text-amber-800">
-                      <span className="font-semibold">No API credits.</span> Add credits at{" "}
-                      <a href="https://replicate.com/billing" target="_blank" rel="noreferrer"
-                        className="underline font-semibold">replicate.com/billing</a>{" "}
-                      to enable AI images. Instant preview still works above.
+                    <div className="text-xs text-amber-800 space-y-0.5">
+                      <p className="font-semibold">Replicate account needs credits.</p>
+                      <p>Add <strong>at least $5</strong> at{" "}
+                        <a href="https://replicate.com/account/billing#billing" target="_blank" rel="noreferrer"
+                          className="underline font-semibold">replicate.com/billing</a>{" "}
+                        to unlock AI generation. The instant canvas preview still works above.</p>
                     </div>
                   </div>
                 )}
