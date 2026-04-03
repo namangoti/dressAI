@@ -1,10 +1,9 @@
 import MobileLayout from "@/components/layout/MobileLayout";
 import { Button } from "@/components/ui/button";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   ChevronLeft, Check, Camera, Image as ImageIcon,
-  RotateCcw, Share2, Heart, Ruler, Weight, Shirt,
-  Sparkles, Loader2, AlertCircle, Clock
+  RotateCcw, Share2, Heart, Ruler, Weight, Shirt, Sparkles,
 } from "lucide-react";
 import { useLocation } from "wouter";
 
@@ -16,29 +15,30 @@ import garment5 from "@/assets/images/tshirt-blue.png";
 import garment6 from "@/assets/images/tshirt-graphic.png";
 
 /* ── Outfit catalogue ─────────────────────────────────────── */
+type GarmentType = "tops" | "bottoms";
 const GARMENTS = [
-  { id: 1, image: garment1, name: "Black T-Shirt",   price: "₹599", tag: "Bestseller",
+  { id: 1, image: garment1, name: "Black T-Shirt",   price: "₹599", tag: "Bestseller", type: "tops" as GarmentType,
     fallbackM: "https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=600&q=80",
     fallbackF: "https://images.unsplash.com/photo-1588117305388-c2631a279f82?w=600&q=80" },
-  { id: 2, image: garment2, name: "White T-Shirt",   price: "₹499", tag: "New",
+  { id: 2, image: garment2, name: "White T-Shirt",   price: "₹499", tag: "New",        type: "tops" as GarmentType,
     fallbackM: "https://images.unsplash.com/photo-1516826957135-700dedea698c?w=600&q=80",
     fallbackF: "https://images.unsplash.com/photo-1485231183945-fffde7ae021e?w=600&q=80" },
-  { id: 3, image: garment3, name: "Grey T-Shirt",    price: "₹549", tag: "",
+  { id: 3, image: garment3, name: "Grey T-Shirt",    price: "₹549", tag: "",           type: "tops" as GarmentType,
     fallbackM: "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=600&q=80",
     fallbackF: "https://images.unsplash.com/photo-1509631179647-0177331693ae?w=600&q=80" },
-  { id: 4, image: garment4, name: "Red T-Shirt",     price: "₹649", tag: "Hot",
+  { id: 4, image: garment4, name: "Red T-Shirt",     price: "₹649", tag: "Hot",        type: "tops" as GarmentType,
     fallbackM: "https://images.unsplash.com/photo-1503341504253-dff4815485f1?w=600&q=80",
     fallbackF: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=600&q=80" },
-  { id: 5, image: garment5, name: "Blue T-Shirt",    price: "₹599", tag: "",
+  { id: 5, image: garment5, name: "Blue T-Shirt",    price: "₹599", tag: "",           type: "tops" as GarmentType,
     fallbackM: "https://images.unsplash.com/photo-1473621038790-b778b4de3b84?w=600&q=80",
     fallbackF: "https://images.unsplash.com/photo-1495385794356-15371f348c31?w=600&q=80" },
-  { id: 6, image: garment6, name: "Graphic T-Shirt", price: "₹799", tag: "Trending",
+  { id: 6, image: garment6, name: "Graphic T-Shirt", price: "₹799", tag: "Trending",   type: "tops" as GarmentType,
     fallbackM: "https://images.unsplash.com/photo-1562157873-818bc0726f68?w=600&q=80",
     fallbackF: "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=600&q=80" },
 ];
 
 const SIZES = ["XS", "S", "M", "L", "XL", "XXL"] as const;
-type Size = typeof SIZES[number];
+type Size   = typeof SIZES[number];
 type Gender = "man" | "woman";
 
 const SKIN_TONES = [
@@ -49,125 +49,95 @@ const SKIN_TONES = [
   { key: "dark",   color: "#4A2912" },
 ];
 
-/* Load an image element from any src */
+/* ── Canvas utilities ─────────────────────────────────────── */
+
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.onload = () => resolve(img);
+    img.onload  = () => resolve(img);
     img.onerror = reject;
     img.src = src;
   });
 }
 
-/* Convert a local asset src to base64 */
-async function imageToBase64(src: string): Promise<string> {
-  const resp = await fetch(src);
-  const blob = await resp.blob();
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}
-
-/* Resize + compress a data-URL image, JPEG */
-function compressImage(dataUrl: string, maxSize = 1024, quality = 0.85): Promise<string> {
-  return new Promise(resolve => {
-    const img = new Image();
-    img.onload = () => {
-      const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
-      const w = Math.round(img.width * scale);
-      const h = Math.round(img.height * scale);
-      const canvas = document.createElement("canvas");
-      canvas.width = w; canvas.height = h;
-      canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
-      resolve(canvas.toDataURL("image/jpeg", quality));
-    };
-    img.src = dataUrl;
-  });
-}
-
-/* Flood-fill background removal from image borders */
+/**
+ * Flood-fill background removal seeded from all border pixels.
+ * Works for any uniform-background garment PNG.
+ */
 function stripBackground(imgData: ImageData): ImageData {
   const { width, height, data } = imgData;
   const visited = new Uint8Array(width * height);
   const queue: number[] = [];
 
-  // Seed from all border pixels
-  for (let x = 0; x < width; x++) {
-    [x, (height - 1) * width + x].forEach(i => { if (!visited[i]) { visited[i] = 1; queue.push(i); } });
-  }
-  for (let y = 1; y < height - 1; y++) {
-    [y * width, y * width + width - 1].forEach(i => { if (!visited[i]) { visited[i] = 1; queue.push(i); } });
-  }
+  const seed = (i: number) => { if (!visited[i]) { visited[i] = 1; queue.push(i); } };
+  for (let x = 0; x < width;  x++) { seed(x); seed((height - 1) * width + x); }
+  for (let y = 1; y < height - 1; y++) { seed(y * width); seed(y * width + width - 1); }
 
-  // Sample background colour from top-left corner
   const bgR = data[0], bgG = data[1], bgB = data[2];
-  const out = new ImageData(new Uint8ClampedArray(data), width, height);
-  const THRESH = 40;
+  const out  = new ImageData(new Uint8ClampedArray(data), width, height);
+  const THRESH = 42;
 
   let head = 0;
   while (head < queue.length) {
     const idx = queue[head++];
-    const p = idx * 4;
-    const dr = Math.abs(data[p] - bgR), dg = Math.abs(data[p + 1] - bgG), db = Math.abs(data[p + 2] - bgB);
-    if (dr + dg + db > THRESH) continue;
-    out.data[p + 3] = 0; // transparent
+    const p   = idx * 4;
+    if (Math.abs(data[p] - bgR) + Math.abs(data[p+1] - bgG) + Math.abs(data[p+2] - bgB) > THRESH) continue;
+    out.data[p + 3] = 0;
     const x = idx % width, y = (idx / width) | 0;
-    const nb = [x > 0 && idx - 1, x < width - 1 && idx + 1, y > 0 && idx - width, y < height - 1 && idx + width];
-    nb.forEach(n => { if (n !== false && !visited[n as number]) { visited[n as number] = 1; queue.push(n as number); } });
+    if (x > 0          && !visited[idx-1])     { visited[idx-1]     = 1; queue.push(idx-1); }
+    if (x < width - 1  && !visited[idx+1])     { visited[idx+1]     = 1; queue.push(idx+1); }
+    if (y > 0          && !visited[idx-width])  { visited[idx-width] = 1; queue.push(idx-width); }
+    if (y < height - 1 && !visited[idx+width])  { visited[idx+width] = 1; queue.push(idx+width); }
   }
   return out;
 }
 
-/* Canvas-based try-on: overlay garment on person photo, instant, no API needed */
-async function canvasTryOn(
+/** Load a garment PNG and return a canvas with background stripped. Cached by caller. */
+async function processGarment(src: string): Promise<HTMLCanvasElement> {
+  const resp = await fetch(src);
+  const blob = await resp.blob();
+  const base64: string = await new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onload  = () => res(fr.result as string);
+    fr.onerror = rej;
+    fr.readAsDataURL(blob);
+  });
+  const img = await loadImage(base64);
+  const c   = document.createElement("canvas");
+  c.width   = img.width;
+  c.height  = img.height;
+  const ctx = c.getContext("2d", { willReadFrequently: true })!;
+  ctx.drawImage(img, 0, 0);
+  ctx.putImageData(stripBackground(ctx.getImageData(0, 0, c.width, c.height)), 0, 0);
+  return c;
+}
+
+/** Composite a pre-processed garment canvas onto a person data-URL. */
+async function composite(
   personDataUrl: string,
-  garmentSrc: string,
-  garmentType: "tops" | "bottoms" = "tops"
+  garmentCanvas: HTMLCanvasElement,
+  type: GarmentType,
 ): Promise<string> {
-  // Load person at natural resolution; garment from local asset (no CORS)
-  const garmentBase64 = await imageToBase64(garmentSrc);
-  const [personImg, garmentImg] = await Promise.all([
-    loadImage(personDataUrl),
-    loadImage(garmentBase64),
-  ]);
+  const person = await loadImage(personDataUrl);
 
-  // Process garment — strip background
-  const gCan = document.createElement("canvas");
-  gCan.width = garmentImg.width; gCan.height = garmentImg.height;
-  const gCtx = gCan.getContext("2d", { willReadFrequently: true })!;
-  gCtx.drawImage(garmentImg, 0, 0);
-  gCtx.putImageData(stripBackground(gCtx.getImageData(0, 0, gCan.width, gCan.height)), 0, 0);
+  const out   = document.createElement("canvas");
+  out.width   = person.width;
+  out.height  = person.height;
+  const ctx   = out.getContext("2d")!;
 
-  // Output canvas at person image dimensions
-  const canvas = document.createElement("canvas");
-  canvas.width = personImg.width; canvas.height = personImg.height;
-  const ctx = canvas.getContext("2d")!;
+  ctx.drawImage(person, 0, 0);
 
-  ctx.drawImage(personImg, 0, 0);
-
-  // Position garment over the correct body zone
-  const yStart = garmentType === "tops" ? personImg.height * 0.17 : personImg.height * 0.47;
-  const yEnd   = garmentType === "tops" ? personImg.height * 0.62 : personImg.height * 0.97;
+  const yStart = type === "tops"    ? person.height * 0.15 : person.height * 0.46;
+  const yEnd   = type === "bottoms" ? person.height * 0.97 : person.height * 0.60;
   const garH   = yEnd - yStart;
-  const garW   = garH * (garmentImg.width / garmentImg.height);
-  const garX   = (personImg.width - garW) / 2;
+  const garW   = garH * (garmentCanvas.width / garmentCanvas.height);
+  const garX   = (person.width - garW) / 2;
 
-  ctx.globalAlpha = 0.90;
-  ctx.drawImage(gCan, garX, yStart, garW, garH);
+  ctx.globalAlpha = 0.92;
+  ctx.drawImage(garmentCanvas, garX, yStart, garW, garH);
   ctx.globalAlpha = 1;
 
-  // "Smart Preview" watermark
-  ctx.fillStyle = "rgba(0,0,0,0.45)";
-  ctx.fillRect(0, personImg.height - 28, personImg.width, 28);
-  ctx.fillStyle = "#fff";
-  ctx.font = `bold ${Math.round(personImg.height * 0.025)}px sans-serif`;
-  ctx.textAlign = "center";
-  ctx.fillText("Smart Preview — upgrade to AI for photorealistic result", personImg.width / 2, personImg.height - 10);
-
-  return canvas.toDataURL("image/jpeg", 0.92);
+  return out.toDataURL("image/jpeg", 0.93);
 }
 
 /* ════════════════════════════════════════════════════════════ */
@@ -175,112 +145,63 @@ export default function TryOn() {
   const [, setLocation] = useLocation();
   const [step, setStep] = useState<1 | 2>(1);
 
-  /* ── profile state ── */
-  const [gender, setGender]     = useState<Gender>("man");
-  const [height, setHeight]     = useState(170);
-  const [weight, setWeight]     = useState(70);
-  const [size, setSize]         = useState<Size>("M");
-  const [skinTone, setSkinTone] = useState("medium");
+  /* ── profile ── */
+  const [gender,       setGender]       = useState<Gender>("man");
+  const [height,       setHeight]       = useState(170);
+  const [weight,       setWeight]       = useState(70);
+  const [size,         setSize]         = useState<Size>("M");
+  const [skinTone,     setSkinTone]     = useState("medium");
   const [uploadedPhoto, setUploadedPhoto] = useState<string | null>(null);
 
-  /* ── try-on state ── */
+  /* ── outfit state ── */
   const [selectedId, setSelectedId] = useState(1);
-  const [saved, setSaved]           = useState(false);
-  const [aiResult, setAiResult]     = useState<string | null>(null);
-  const [resultMode, setResultMode] = useState<"preview" | "ai">("preview");
-  const [loading, setLoading]       = useState(false);
-  const [error, setError]           = useState<string | null>(null);
-  const [billingError, setBillingError] = useState(false);
-  const [elapsed, setElapsed]       = useState(0);
-  const timerRef                    = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [saved,      setSaved]      = useState(false);
+  const [tryOnUrl,   setTryOnUrl]   = useState<string | null>(null);
+  const [compositing, setCompositing] = useState(false);
 
-  // Elapsed-time ticker while loading
+  /* ── garment cache: Map<id, processed canvas> ── */
+  const cache     = useRef<Map<number, HTMLCanvasElement>>(new Map());
+  const [cacheReady, setCacheReady] = useState(false);
+
+  /* Preload & process all garments once on mount */
   useEffect(() => {
-    if (loading) {
-      setElapsed(0);
-      timerRef.current = setInterval(() => setElapsed(s => s + 1), 1000);
-    } else {
-      if (timerRef.current) clearInterval(timerRef.current);
+    Promise.all(
+      GARMENTS.map(g =>
+        processGarment(g.image).then(c => cache.current.set(g.id, c))
+      )
+    ).then(() => setCacheReady(true));
+  }, []);
+
+  /* Auto-composite whenever photo or garment changes */
+  const doComposite = useCallback(async (photo: string, garmentId: number) => {
+    const garmentCanvas = cache.current.get(garmentId);
+    if (!garmentCanvas) return;
+    const g = GARMENTS.find(x => x.id === garmentId)!;
+    setCompositing(true);
+    try {
+      const result = await composite(photo, garmentCanvas, g.type);
+      setTryOnUrl(result);
+    } finally {
+      setCompositing(false);
     }
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [loading]);
+  }, []);
 
-  const bmi     = weight / Math.pow(height / 100, 2);
-  const garment = GARMENTS.find(g => g.id === selectedId)!;
+  useEffect(() => {
+    if (uploadedPhoto && cacheReady) {
+      doComposite(uploadedPhoto, selectedId);
+    } else {
+      setTryOnUrl(null);
+    }
+  }, [uploadedPhoto, selectedId, cacheReady, doComposite]);
+
+  const garment    = GARMENTS.find(g => g.id === selectedId)!;
   const fallbackUrl = gender === "man" ? garment.fallbackM : garment.fallbackF;
+  const bmi         = weight / Math.pow(height / 100, 2);
 
-  /* ── helpers ── */
   function readFile(file: File, cb: (url: string) => void) {
     const r = new FileReader();
     r.onload = e => cb(e.target?.result as string);
     r.readAsDataURL(file);
-  }
-
-  async function runAiTryOn(garmentId: number) {
-    if (!uploadedPhoto) return;
-    setLoading(true);
-    setError(null);
-    setBillingError(false);
-    setAiResult(null);
-
-    const g = GARMENTS.find(x => x.id === garmentId)!;
-
-    // ── Step 1: Instant canvas preview (no API, always works) ──
-    try {
-      const preview = await canvasTryOn(uploadedPhoto, g.image, "tops");
-      setAiResult(preview);
-      setResultMode("preview");
-      setLoading(false); // show the preview immediately
-    } catch {
-      // canvas failed somehow — keep loading
-    }
-
-    // ── Step 2: Attempt real AI in the background ──
-    try {
-      const [personCompressed, garmentBase64] = await Promise.all([
-        compressImage(uploadedPhoto, 768, 0.82),
-        imageToBase64(g.image),
-      ]);
-
-      const ctrl = new AbortController();
-      const clientTimer = setTimeout(() => ctrl.abort(), 120_000);
-      const resp = await fetch("/api/tryon", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        signal: ctrl.signal,
-        body: JSON.stringify({ personImage: personCompressed, garmentImage: garmentBase64 }),
-      }).finally(() => clearTimeout(clientTimer));
-
-      const data = await resp.json();
-
-      if (resp.status === 402) {
-        // Billing issue — keep canvas preview, show billing note
-        setBillingError(true);
-        return;
-      }
-      if (!resp.ok) throw new Error(data.error || "AI generation failed");
-
-      // AI succeeded — upgrade the displayed image
-      setAiResult(data.resultUrl);
-      setResultMode("ai");
-    } catch (err: any) {
-      // If we already have a canvas preview, just set billing/error info silently
-      if (err.name === "AbortError") {
-        setBillingError(false); // timed out, not billing
-      }
-      // Don't overwrite the canvas preview with an error message
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function selectGarment(id: number) {
-    setSelectedId(id);
-    setSaved(false);
-    setAiResult(null);
-    setError(null);
-    setBillingError(false);
-    setResultMode("preview");
   }
 
   /* ════════════════════════════════════════════════════════════ */
@@ -297,7 +218,7 @@ export default function TryOn() {
               </Button>
               <div>
                 <h1 className="text-lg font-bold leading-tight">Your Profile</h1>
-                <p className="text-xs text-muted-foreground">Upload your photo for AI try-on</p>
+                <p className="text-xs text-muted-foreground">Upload your photo for instant try-on</p>
               </div>
             </header>
 
@@ -306,7 +227,7 @@ export default function TryOn() {
               {/* Upload photo */}
               <section>
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
-                  Your Photo <span className="text-primary font-bold">★ Required for AI try-on</span>
+                  Your Photo <span className="text-primary font-bold">★ Required for Try-On</span>
                 </p>
                 {uploadedPhoto ? (
                   <div className="flex items-center gap-3 p-3 rounded-2xl border border-primary/40 bg-primary/5">
@@ -317,39 +238,36 @@ export default function TryOn() {
                       <p className="text-sm font-semibold text-green-600 flex items-center gap-1">
                         <Check size={14} /> Photo ready
                       </p>
-                      <p className="text-xs text-muted-foreground">AI will dress you in any outfit</p>
+                      <p className="text-xs text-muted-foreground">Try-on updates instantly as you pick outfits</p>
                     </div>
-                    <button onClick={() => { setUploadedPhoto(null); setAiResult(null); }}
+                    <button onClick={() => { setUploadedPhoto(null); setTryOnUrl(null); }}
                       className="text-muted-foreground hover:text-destructive p-1">
                       <RotateCcw size={16} />
                     </button>
                   </div>
                 ) : (
                   <div className="flex gap-2">
-                    <label className="flex-1 flex items-center justify-center gap-1.5 h-12 rounded-2xl border-2 border-dashed border-primary/50 bg-primary/5 cursor-pointer text-sm font-semibold text-primary hover:bg-primary/10 transition-colors">
-                      <Camera size={15} /> Camera
-                      <input type="file" accept="image/*" capture="environment" className="hidden"
+                    <label className="flex-1 flex items-center justify-center gap-1.5 h-12 rounded-2xl border-2 border-dashed border-primary/50 bg-primary/5 cursor-pointer text-sm font-semibold text-primary hover:bg-primary/10 transition-colors" data-testid="label-upload-photo">
+                      <Camera size={16} /> Upload Photo
+                      <input type="file" accept="image/*" className="hidden"
                         onChange={e => { const f = e.target.files?.[0]; if (f) readFile(f, setUploadedPhoto); }} />
                     </label>
-                    <label className="flex-1 flex items-center justify-center gap-1.5 h-12 rounded-2xl border-2 border-dashed border-primary/50 bg-primary/5 cursor-pointer text-sm font-semibold text-primary hover:bg-primary/10 transition-colors">
-                      <ImageIcon size={15} /> Gallery
-                      <input type="file" accept="image/*" className="hidden"
+                    <label className="flex-1 flex items-center justify-center gap-1.5 h-12 rounded-2xl border-2 border-dashed border-border bg-secondary/30 cursor-pointer text-sm text-muted-foreground hover:bg-secondary/60 transition-colors" data-testid="label-camera-photo">
+                      <ImageIcon size={16} /> Take Photo
+                      <input type="file" accept="image/*" capture="user" className="hidden"
                         onChange={e => { const f = e.target.files?.[0]; if (f) readFile(f, setUploadedPhoto); }} />
                     </label>
                   </div>
                 )}
-                <p className="text-[10px] text-muted-foreground mt-1.5">
-                  Best results: full-body photo, good lighting, plain background
-                </p>
               </section>
 
               {/* Gender */}
               <section>
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Gender</p>
-                <div className="grid grid-cols-2 gap-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Gender</p>
+                <div className="flex gap-2">
                   {(["man", "woman"] as Gender[]).map(g => (
-                    <button key={g} onClick={() => setGender(g)}
-                      className={`py-3 rounded-2xl text-sm font-semibold border-2 transition-all ${gender === g ? "border-primary bg-primary text-white" : "border-border bg-secondary/40"}`}>
+                    <button key={g} onClick={() => setGender(g)} data-testid={`button-gender-${g}`}
+                      className={`flex-1 py-2.5 rounded-2xl text-sm font-semibold border-2 transition-all capitalize ${gender === g ? "border-primary bg-primary text-white" : "border-border"}`}>
                       {g === "man" ? "👨 Man" : "👩 Woman"}
                     </button>
                   ))}
@@ -358,86 +276,69 @@ export default function TryOn() {
 
               {/* Height */}
               <section>
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center justify-between mb-1.5">
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1">
-                    <Ruler size={11} /> Height
+                    <Ruler size={12} /> Height
                   </p>
                   <span className="text-sm font-bold text-primary">{height} cm</span>
                 </div>
-                <input type="range" min={140} max={200} value={height} onChange={e => setHeight(+e.target.value)}
-                  className="w-full accent-primary h-2 rounded-full" />
-                <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
-                  <span>140</span><span>200 cm</span>
+                <input type="range" min={140} max={210} value={height} onChange={e => setHeight(+e.target.value)}
+                  className="w-full accent-primary" data-testid="slider-height" />
+                <div className="flex justify-between text-[10px] text-muted-foreground mt-0.5">
+                  <span>140 cm</span><span>175 cm</span><span>210 cm</span>
                 </div>
               </section>
 
               {/* Weight */}
               <section>
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center justify-between mb-1.5">
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1">
-                    <Weight size={11} /> Weight
+                    <Weight size={12} /> Weight
                   </p>
-                  <span className="text-sm font-bold text-primary">{weight} kg</span>
+                  <span className="text-sm font-bold text-primary">{weight} kg
+                    <span className="text-[10px] text-muted-foreground font-normal ml-1">· BMI {bmi.toFixed(1)}</span>
+                  </span>
                 </div>
-                <input type="range" min={40} max={130} value={weight} onChange={e => setWeight(+e.target.value)}
-                  className="w-full accent-primary h-2 rounded-full" />
-                <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
-                  <span>40</span><span>130 kg</span>
+                <input type="range" min={40} max={150} value={weight} onChange={e => setWeight(+e.target.value)}
+                  className="w-full accent-primary" data-testid="slider-weight" />
+                <div className="flex justify-between text-[10px] text-muted-foreground mt-0.5">
+                  <span>40 kg</span><span>95 kg</span><span>150 kg</span>
                 </div>
               </section>
 
               {/* Size */}
               <section>
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1">
-                  <Shirt size={11} /> Clothing Size
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5 flex items-center gap-1">
+                  <Shirt size={12} /> Clothing Size
                 </p>
                 <div className="flex gap-2">
                   {SIZES.map(s => (
-                    <button key={s} onClick={() => setSize(s)}
-                      className={`flex-1 h-10 rounded-xl text-sm font-bold border-2 transition-all ${size === s ? "border-primary bg-primary text-white" : "border-border bg-secondary/40"}`}>
+                    <button key={s} onClick={() => setSize(s)} data-testid={`button-size-${s}`}
+                      className={`flex-1 py-2 rounded-xl text-sm font-bold border-2 transition-all ${size === s ? "border-primary bg-primary text-white" : "border-border"}`}>
                       {s}
                     </button>
                   ))}
                 </div>
               </section>
 
-              {/* Skin Tone */}
+              {/* Skin tone */}
               <section>
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Skin Tone</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Skin Tone</p>
                 <div className="flex gap-3">
                   {SKIN_TONES.map(t => (
-                    <button key={t.key} onClick={() => setSkinTone(t.key)}
-                      style={{ backgroundColor: t.color }}
-                      className={`w-10 h-10 rounded-full border-4 transition-all ${skinTone === t.key ? "border-primary scale-110 shadow-lg" : "border-transparent"}`} />
+                    <button key={t.key} onClick={() => setSkinTone(t.key)} data-testid={`button-skintone-${t.key}`}
+                      className={`w-9 h-9 rounded-full border-4 transition-all ${skinTone === t.key ? "border-primary scale-110 shadow-md" : "border-border"}`}
+                      style={{ backgroundColor: t.color }} />
                   ))}
-                </div>
-              </section>
-
-              {/* Summary */}
-              <section className="rounded-3xl border border-border/50 bg-secondary/30 p-4">
-                <p className="text-xs font-semibold text-muted-foreground mb-2">Profile Summary</p>
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div className="bg-background rounded-2xl p-2.5 border border-border/40">
-                    <p className="text-lg font-bold text-primary">{bmi.toFixed(1)}</p>
-                    <p className="text-[10px] text-muted-foreground">BMI</p>
-                  </div>
-                  <div className="bg-background rounded-2xl p-2.5 border border-border/40">
-                    <p className="text-lg font-bold text-primary">{size}</p>
-                    <p className="text-[10px] text-muted-foreground">Size</p>
-                  </div>
-                  <div className="bg-background rounded-2xl p-2.5 border border-border/40">
-                    <p className="text-base font-bold text-primary">{gender === "man" ? "Male" : "Female"}</p>
-                    <p className="text-[10px] text-muted-foreground">Gender</p>
-                  </div>
                 </div>
               </section>
             </div>
 
             <div className="px-5 pb-6 shrink-0">
-              <Button className="w-full rounded-full h-13 text-base shadow-lg shadow-primary/20 gap-2"
-                onClick={() => { setStep(2); setAiResult(null); setError(null); }}>
+              <Button className="w-full h-12 rounded-full text-base font-bold shadow-lg shadow-primary/20 gap-2"
+                onClick={() => setStep(2)} data-testid="button-start-tryon">
                 <Sparkles size={18} />
-                {uploadedPhoto ? "Start AI Try-On" : "Browse Outfits"}
+                {uploadedPhoto ? "Start Try-On →" : "Browse Outfits →"}
               </Button>
             </div>
           </div>
@@ -452,13 +353,12 @@ export default function TryOn() {
                 <ChevronLeft size={22} />
               </Button>
               <div className="flex-1 min-w-0">
-                <h1 className="text-base font-bold truncate">
-                  {uploadedPhoto ? "AI Virtual Try-On" : "Outfit Preview"}
-                </h1>
+                <h1 className="text-base font-bold truncate">Virtual Try-On</h1>
                 <p className="text-xs text-muted-foreground">{garment.name} · Size {size}</p>
               </div>
-              <button onClick={() => setSaved(s => !s)}
-                className={`flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-full border shrink-0 transition-all ${saved ? "bg-red-50 border-red-200 text-red-500" : "border-border text-muted-foreground"}`}>
+              <button onClick={() => setSaved(s => !s)} data-testid="button-save-outfit"
+                className={`flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-full border shrink-0 transition-all
+                  ${saved ? "bg-red-50 border-red-200 text-red-500" : "border-border text-muted-foreground"}`}>
                 <Heart size={12} fill={saved ? "currentColor" : "none"} />
                 {saved ? "Saved" : "Save"}
               </button>
@@ -468,141 +368,90 @@ export default function TryOn() {
             <div className="mx-4 rounded-3xl overflow-hidden border border-border/30 shadow-xl relative shrink-0"
               style={{ aspectRatio: "3/4", maxHeight: "50vh" }}>
 
-              {/* Result / Loading / Error / Fallback */}
-              {loading ? (
-                <div className="w-full h-full bg-secondary/50 flex flex-col items-center justify-center gap-4">
-                  {uploadedPhoto && (
-                    <img src={uploadedPhoto} alt="You" className="absolute inset-0 w-full h-full object-cover object-top opacity-30 blur-sm" />
-                  )}
-                  <div className="relative z-10 flex flex-col items-center gap-3">
-                    <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                      <Loader2 className="w-8 h-8 text-primary animate-spin" />
-                    </div>
-                    <div className="text-center">
-                      <p className="font-bold text-base text-foreground">AI is fitting the outfit…</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Usually 15–30 seconds
-                      </p>
-                      <div className="mt-2 flex items-center justify-center gap-1 text-primary/80">
-                        <Clock size={12} />
-                        <span className="text-xs font-mono">{elapsed}s</span>
-                      </div>
-                    </div>
-                    <div className="flex gap-1">
-                      {[0, 1, 2].map(i => (
-                        <div key={i} className="w-2 h-2 rounded-full bg-primary animate-bounce"
-                          style={{ animationDelay: `${i * 0.2}s` }} />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ) : error ? (
-                <div className="w-full h-full bg-secondary/50 flex flex-col items-center justify-center gap-3 p-6 text-center">
-                  <AlertCircle className="w-10 h-10 text-destructive" />
-                  <p className="font-semibold text-sm">AI try-on failed</p>
-                  <p className="text-xs text-muted-foreground">{error}</p>
-                  <Button size="sm" onClick={() => runAiTryOn(selectedId)} className="rounded-full gap-1.5">
-                    <RotateCcw size={13} /> Retry
-                  </Button>
-                  <p className="text-[10px] text-muted-foreground">Showing demo below</p>
-                  <img src={fallbackUrl} alt="Demo" className="absolute inset-0 w-full h-full object-cover object-top -z-10 opacity-50" />
-                </div>
-              ) : aiResult ? (
-                <img src={aiResult} alt="AI Try-On Result" className="w-full h-full object-cover object-top" />
+              {/* Image layer */}
+              {tryOnUrl ? (
+                <img src={tryOnUrl} alt="Try-On"
+                  className={`w-full h-full object-cover object-top transition-opacity duration-200 ${compositing ? "opacity-60" : "opacity-100"}`} />
               ) : (
-                <img src={fallbackUrl} alt={garment.name} className="w-full h-full object-cover object-top" />
+                <img src={fallbackUrl} alt={garment.name}
+                  className="w-full h-full object-cover object-top" />
               )}
 
-              {/* Overlay badges */}
-              {!loading && (
-                <>
-                  <div className="absolute top-3 left-3 bg-black/55 backdrop-blur-sm rounded-full px-2.5 py-1 flex items-center gap-1.5">
-                    <img src={garment.image} alt="" className="w-4 h-4 object-contain" />
-                    <span className="text-white text-[10px] font-semibold">{garment.name}</span>
+              {/* Compositing shimmer */}
+              {compositing && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/10">
+                  <div className="bg-white/90 backdrop-blur rounded-full px-4 py-2 flex items-center gap-2 shadow-lg">
+                    <div className="w-3 h-3 rounded-full bg-primary animate-pulse" />
+                    <span className="text-xs font-semibold text-foreground">Fitting…</span>
                   </div>
-                  {aiResult && resultMode === "ai" && (
-                    <div className="absolute top-3 right-3 bg-primary/90 backdrop-blur-sm rounded-full px-2.5 py-1 flex items-center gap-1">
-                      <Sparkles size={10} className="text-yellow-300" />
-                      <span className="text-white text-[10px] font-bold">AI Result</span>
-                    </div>
-                  )}
-                  {aiResult && resultMode === "preview" && (
-                    <div className="absolute top-3 right-3 bg-amber-500/90 backdrop-blur-sm rounded-full px-2.5 py-1 flex items-center gap-1">
-                      <Sparkles size={10} className="text-white" />
-                      <span className="text-white text-[10px] font-bold">Smart Preview</span>
-                    </div>
-                  )}
-                </>
-              )}
-
-              {/* Price + CTA */}
-              {!loading && (
-                <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
-                  <div className="bg-white/95 backdrop-blur rounded-2xl px-3 py-2 shadow-lg">
-                    <p className="text-[9px] text-muted-foreground">Price</p>
-                    <p className="text-base font-bold text-primary leading-none">{garment.price}</p>
-                    <p className="text-[9px] text-muted-foreground">Size: {size}</p>
-                  </div>
-                  <button className="bg-primary text-white rounded-2xl px-4 py-2.5 text-xs font-bold shadow-lg active:scale-95 transition-transform">
-                    Add to Cart
-                  </button>
                 </div>
               )}
-            </div>
 
-            {/* Try-On button + billing note */}
-            {uploadedPhoto && !loading && (
-              <div className="mx-4 mt-2 shrink-0 flex flex-col gap-1.5">
-                <Button
-                  className="w-full rounded-full h-11 gap-2 shadow-md shadow-primary/20"
-                  onClick={() => runAiTryOn(selectedId)}
-                  disabled={loading}
-                >
-                  <Sparkles size={16} />
-                  {aiResult ? "Regenerate Try-On" : "Generate Try-On"}
-                </Button>
-                {billingError && (
-                  <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-2xl px-3 py-2">
-                    <AlertCircle size={14} className="text-amber-500 shrink-0 mt-0.5" />
-                    <div className="text-[10px] text-amber-800 leading-snug">
-                      <span className="font-semibold">AI try-on needs Replicate credits.</span>{" "}
-                      Add $5+ at{" "}
-                      <a href="https://replicate.com/account/billing#billing" target="_blank" rel="noopener noreferrer"
-                        className="underline font-semibold text-amber-700">replicate.com/billing</a>{" "}
-                      for photorealistic results. Smart Preview shown above.
-                    </div>
-                  </div>
-                )}
+              {/* Garment name badge */}
+              <div className="absolute top-3 left-3 bg-black/55 backdrop-blur-sm rounded-full px-2.5 py-1 flex items-center gap-1.5">
+                <img src={garment.image} alt="" className="w-4 h-4 object-contain" />
+                <span className="text-white text-[10px] font-semibold">{garment.name}</span>
               </div>
-            )}
+
+              {/* Try-on badge */}
+              {tryOnUrl && !compositing && (
+                <div className="absolute top-3 right-3 bg-primary/90 backdrop-blur-sm rounded-full px-2.5 py-1 flex items-center gap-1">
+                  <Sparkles size={10} className="text-yellow-300" />
+                  <span className="text-white text-[10px] font-bold">Try-On</span>
+                </div>
+              )}
+
+              {/* Price + Cart */}
+              <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
+                <div className="bg-white/95 backdrop-blur rounded-2xl px-3 py-2 shadow-lg">
+                  <p className="text-[9px] text-muted-foreground">Price</p>
+                  <p className="text-base font-bold text-primary leading-none">{garment.price}</p>
+                  <p className="text-[9px] text-muted-foreground">Size: {size}</p>
+                </div>
+                <button className="bg-primary text-white rounded-2xl px-4 py-2.5 text-xs font-bold shadow-lg active:scale-95 transition-transform"
+                  data-testid="button-add-to-cart">
+                  Add to Cart
+                </button>
+              </div>
+            </div>
 
             {/* No photo hint */}
             {!uploadedPhoto && (
               <div className="mx-4 mt-2 shrink-0">
                 <button onClick={() => setStep(1)}
-                  className="w-full flex items-center justify-center gap-2 h-10 rounded-2xl border-2 border-dashed border-primary/30 text-primary text-xs font-semibold hover:bg-primary/5 transition-colors">
-                  <Camera size={13} /> Upload your photo for AI try-on
+                  className="w-full flex items-center justify-center gap-2 h-10 rounded-2xl border-2 border-dashed border-primary/30 text-primary text-xs font-semibold hover:bg-primary/5 transition-colors"
+                  data-testid="button-upload-photo-hint">
+                  <Camera size={13} /> Upload your photo for instant try-on
                 </button>
+              </div>
+            )}
+
+            {/* Cache loading bar (only while initial preload is in progress) */}
+            {!cacheReady && (
+              <div className="mx-4 mt-2 shrink-0">
+                <div className="h-1 rounded-full bg-border overflow-hidden">
+                  <div className="h-full bg-primary rounded-full animate-pulse w-3/4" />
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1 text-center">Preloading outfit images…</p>
               </div>
             )}
 
             {/* Outfit picker */}
             <div className="shrink-0 mt-2 px-4">
               <div className="flex items-center justify-between mb-1.5">
-                <h3 className="text-sm font-semibold">Try Another Outfit</h3>
+                <h3 className="text-sm font-semibold">Pick an Outfit</h3>
                 <span className="text-xs text-muted-foreground">{GARMENTS.length} items</span>
               </div>
               <div className="flex gap-2.5 overflow-x-auto hide-scrollbar -mx-4 px-4 pb-2">
                 {GARMENTS.map(g => (
-                  <div key={g.id}
-                    onClick={() => selectGarment(g.id)}
-                    className={`relative flex-shrink-0 w-[68px] rounded-2xl overflow-hidden cursor-pointer border-2 transition-all active:scale-95 ${selectedId === g.id ? "border-primary shadow-md shadow-primary/25 scale-105" : "border-border/40"}`}
+                  <div key={g.id} onClick={() => setSelectedId(g.id)}
+                    data-testid={`card-garment-${g.id}`}
+                    className={`relative flex-shrink-0 w-[68px] rounded-2xl overflow-hidden cursor-pointer border-2 transition-all active:scale-95
+                      ${selectedId === g.id ? "border-primary shadow-md shadow-primary/25 scale-105" : "border-border/40"}`}
                     style={{ aspectRatio: "3/4" }}>
-                    <img
-                      src={gender === "man" ? g.fallbackM : g.fallbackF}
+                    <img src={gender === "man" ? g.fallbackM : g.fallbackF}
                       alt={g.name}
-                      className="w-full h-full object-cover object-top bg-secondary/30"
-                    />
+                      className="w-full h-full object-cover object-top bg-secondary/30" />
                     {g.tag && (
                       <div className="absolute top-1 left-1 bg-primary text-white text-[7px] font-bold px-1 py-0.5 rounded-full">
                         {g.tag}
@@ -628,8 +477,9 @@ export default function TryOn() {
                 <span className="text-xs text-muted-foreground font-medium shrink-0">Size:</span>
                 <div className="flex gap-1.5 overflow-x-auto hide-scrollbar">
                   {SIZES.map(s => (
-                    <button key={s} onClick={() => setSize(s)}
-                      className={`flex-shrink-0 w-9 h-8 rounded-lg text-xs font-bold border-2 transition-all ${size === s ? "border-primary bg-primary text-white" : "border-border"}`}>
+                    <button key={s} onClick={() => setSize(s)} data-testid={`button-size-${s}`}
+                      className={`flex-shrink-0 w-9 h-8 rounded-lg text-xs font-bold border-2 transition-all
+                        ${size === s ? "border-primary bg-primary text-white" : "border-border"}`}>
                       {s}
                     </button>
                   ))}
@@ -639,7 +489,8 @@ export default function TryOn() {
 
             {/* Bottom actions */}
             <div className="px-4 pb-4 mt-2 flex gap-2.5 shrink-0">
-              <Button variant="outline" className="flex-1 rounded-full gap-1.5 h-11 border-2 text-sm" onClick={() => setStep(1)}>
+              <Button variant="outline" className="flex-1 rounded-full gap-1.5 h-11 border-2 text-sm"
+                onClick={() => setStep(1)}>
                 <RotateCcw size={14} /> Edit Profile
               </Button>
               <Button className="flex-1 rounded-full gap-1.5 h-11 shadow-lg shadow-primary/20 text-sm">
