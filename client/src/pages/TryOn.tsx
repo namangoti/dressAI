@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   ChevronLeft, Check, Camera, Image as ImageIcon,
   RotateCcw, Share2, Heart, Ruler, Weight, Shirt, Sparkles,
+  Loader2, AlertCircle, Clock, Wand2,
 } from "lucide-react";
 import { useLocation } from "wouter";
 
@@ -173,12 +174,32 @@ export default function TryOn() {
   const [size,         setSize]         = useState<Size>("M");
   const [skinTone,     setSkinTone]     = useState("medium");
   const [uploadedPhoto, setUploadedPhoto] = useState<string | null>(null);
+  const [photoError,    setPhotoError]    = useState<string | null>(null);
 
   /* ── outfit state ── */
-  const [selectedId, setSelectedId] = useState(1);
-  const [saved,      setSaved]      = useState(false);
-  const [tryOnUrl,   setTryOnUrl]   = useState<string | null>(null);
+  const [selectedId,  setSelectedId]  = useState(1);
+  const [saved,       setSaved]       = useState(false);
+  const [tryOnUrl,    setTryOnUrl]    = useState<string | null>(null);
+  const [tryOnMode,   setTryOnMode]   = useState<"canvas" | "ai">("canvas");
   const [compositing, setCompositing] = useState(false);
+
+  /* ── AI generation state ── */
+  const [aiLoading,     setAiLoading]     = useState(false);
+  const [aiError,       setAiError]       = useState<string | null>(null);
+  const [billingError,  setBillingError]  = useState(false);
+  const [elapsed,       setElapsed]       = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  /* Elapsed-time ticker while AI is generating */
+  useEffect(() => {
+    if (aiLoading) {
+      setElapsed(0);
+      timerRef.current = setInterval(() => setElapsed(s => s + 1), 1000);
+    } else {
+      if (timerRef.current) clearInterval(timerRef.current);
+    }
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [aiLoading]);
 
   /* ── garment cache: Map<id, processed canvas> ── */
   const cache     = useRef<Map<number, HTMLCanvasElement>>(new Map());
@@ -204,8 +225,10 @@ export default function TryOn() {
     try {
       const result = await composite(photo, garmentCanvas, g.type);
       setTryOnUrl(result);
-    } catch (err) {
-      console.warn("[composite] failed:", err);
+    } catch (err: any) {
+      console.warn("[composite] failed:", err?.message ?? String(err));
+      // Still show the original uploaded photo so the user sees something
+      setTryOnUrl(photo);
     } finally {
       setCompositing(false);
     }
@@ -224,9 +247,93 @@ export default function TryOn() {
   const bmi         = weight / Math.pow(height / 100, 2);
 
   function readFile(file: File, cb: (url: string) => void) {
+    setPhotoError(null);
+
+    // Reject HEIC/HEIF — browsers can't decode them natively
+    const isHeic =
+      file.type === "image/heic" ||
+      file.type === "image/heif" ||
+      /\.(heic|heif)$/i.test(file.name);
+    if (isHeic) {
+      setPhotoError("iPhone HEIC photos aren't supported. Open the photo in Photos → Share → Save as JPEG, then upload the JPEG.");
+      return;
+    }
+
     const r = new FileReader();
-    r.onload = e => cb(e.target?.result as string);
+    r.onload = e => {
+      const dataUrl = e.target?.result as string;
+      // Detect unknown binary type that browsers also can't render
+      if (dataUrl.startsWith("data:application/octet-stream")) {
+        setPhotoError("This photo format isn't supported. Please upload a JPEG or PNG file.");
+        return;
+      }
+      cb(dataUrl);
+    };
     r.readAsDataURL(file);
+  }
+
+  /* ── AI photorealistic try-on ── */
+  async function runAiTryOn() {
+    if (!uploadedPhoto) return;
+    setAiLoading(true);
+    setAiError(null);
+    setBillingError(false);
+
+    try {
+      const g = GARMENTS.find(x => x.id === selectedId)!;
+
+      // Compress person photo to reduce payload size
+      const compressed = await new Promise<string>(resolve => {
+        const img = new Image();
+        img.onload = () => {
+          const scale = Math.min(1, 768 / Math.max(img.width, img.height));
+          const c = document.createElement("canvas");
+          c.width = Math.round(img.width * scale);
+          c.height = Math.round(img.height * scale);
+          c.getContext("2d")!.drawImage(img, 0, 0, c.width, c.height);
+          resolve(c.toDataURL("image/jpeg", 0.82));
+        };
+        img.src = uploadedPhoto;
+      });
+
+      // Convert garment PNG to base64
+      const garmentResp = await fetch(g.image);
+      const garmentBlob = await garmentResp.blob();
+      const garmentBase64 = await new Promise<string>((res, rej) => {
+        const fr = new FileReader();
+        fr.onload  = () => res(fr.result as string);
+        fr.onerror = rej;
+        fr.readAsDataURL(garmentBlob);
+      });
+
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 120_000);
+      const resp = await fetch("/api/tryon", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: ctrl.signal,
+        body: JSON.stringify({ personImage: compressed, garmentImage: garmentBase64 }),
+      }).finally(() => clearTimeout(timer));
+
+      const data = await resp.json();
+
+      if (resp.status === 402) {
+        setBillingError(true);
+        return;
+      }
+      if (!resp.ok) throw new Error(data.error || "AI generation failed");
+
+      setTryOnUrl(data.resultUrl);
+      setTryOnMode("ai");
+    } catch (err: any) {
+      if (err.name === "AbortError") {
+        setAiError("Timed out — please try again");
+      } else {
+        setAiError(err.message || "Something went wrong");
+      }
+    } finally {
+      setAiLoading(false);
+    }
   }
 
   /* ════════════════════════════════════════════════════════════ */
@@ -274,14 +381,22 @@ export default function TryOn() {
                   <div className="flex gap-2">
                     <label className="flex-1 flex items-center justify-center gap-1.5 h-12 rounded-2xl border-2 border-dashed border-primary/50 bg-primary/5 cursor-pointer text-sm font-semibold text-primary hover:bg-primary/10 transition-colors" data-testid="label-upload-photo">
                       <Camera size={16} /> Upload Photo
-                      <input type="file" accept="image/*" className="hidden"
+                      <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden"
                         onChange={e => { const f = e.target.files?.[0]; if (f) readFile(f, setUploadedPhoto); }} />
                     </label>
                     <label className="flex-1 flex items-center justify-center gap-1.5 h-12 rounded-2xl border-2 border-dashed border-border bg-secondary/30 cursor-pointer text-sm text-muted-foreground hover:bg-secondary/60 transition-colors" data-testid="label-camera-photo">
                       <ImageIcon size={16} /> Take Photo
-                      <input type="file" accept="image/*" capture="user" className="hidden"
+                      <input type="file" accept="image/jpeg,image/png,image/webp" capture="user" className="hidden"
                         onChange={e => { const f = e.target.files?.[0]; if (f) readFile(f, setUploadedPhoto); }} />
                     </label>
+                  </div>
+                )}
+
+                {/* HEIC / unsupported format error */}
+                {photoError && (
+                  <div className="mt-2 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-2xl px-3 py-2.5">
+                    <AlertCircle size={14} className="text-amber-600 mt-0.5 shrink-0" />
+                    <p className="text-xs text-amber-800">{photoError}</p>
                   </div>
                 )}
               </section>
@@ -402,12 +517,29 @@ export default function TryOn() {
                   className="w-full h-full object-cover object-top" />
               )}
 
-              {/* Compositing shimmer */}
-              {compositing && (
+              {/* Canvas compositing shimmer */}
+              {compositing && !aiLoading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/10">
                   <div className="bg-white/90 backdrop-blur rounded-full px-4 py-2 flex items-center gap-2 shadow-lg">
                     <div className="w-3 h-3 rounded-full bg-primary animate-pulse" />
                     <span className="text-xs font-semibold text-foreground">Fitting…</span>
+                  </div>
+                </div>
+              )}
+
+              {/* AI generation loading overlay */}
+              {aiLoading && (
+                <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center gap-3">
+                  <div className="w-14 h-14 rounded-full bg-white/10 flex items-center justify-center">
+                    <Loader2 className="w-7 h-7 text-white animate-spin" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-white font-bold text-sm">Generating AI image…</p>
+                    <p className="text-white/70 text-xs mt-0.5">Usually 30–90 seconds</p>
+                    <div className="mt-2 flex items-center justify-center gap-1 text-white/60">
+                      <Clock size={11} />
+                      <span className="text-xs font-mono">{elapsed}s</span>
+                    </div>
                   </div>
                 </div>
               )}
@@ -418,11 +550,14 @@ export default function TryOn() {
                 <span className="text-white text-[10px] font-semibold">{garment.name}</span>
               </div>
 
-              {/* Try-on badge */}
-              {tryOnUrl && !compositing && (
-                <div className="absolute top-3 right-3 bg-primary/90 backdrop-blur-sm rounded-full px-2.5 py-1 flex items-center gap-1">
+              {/* Result mode badge */}
+              {tryOnUrl && !compositing && !aiLoading && (
+                <div className={`absolute top-3 right-3 backdrop-blur-sm rounded-full px-2.5 py-1 flex items-center gap-1
+                  ${tryOnMode === "ai" ? "bg-violet-600/90" : "bg-primary/90"}`}>
                   <Sparkles size={10} className="text-yellow-300" />
-                  <span className="text-white text-[10px] font-bold">Try-On</span>
+                  <span className="text-white text-[10px] font-bold">
+                    {tryOnMode === "ai" ? "AI Result" : "Preview"}
+                  </span>
                 </div>
               )}
 
@@ -448,6 +583,50 @@ export default function TryOn() {
                   data-testid="button-upload-photo-hint">
                   <Camera size={13} /> Upload your photo for instant try-on
                 </button>
+              </div>
+            )}
+
+            {/* ── AI Generate button + messages ── */}
+            {uploadedPhoto && (
+              <div className="mx-4 mt-2 shrink-0 space-y-1.5">
+                {/* Billing error */}
+                {billingError && (
+                  <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-2xl px-3 py-2.5">
+                    <AlertCircle size={14} className="text-amber-600 mt-0.5 shrink-0" />
+                    <div className="text-xs text-amber-800">
+                      <span className="font-semibold">No API credits.</span> Add credits at{" "}
+                      <a href="https://replicate.com/billing" target="_blank" rel="noreferrer"
+                        className="underline font-semibold">replicate.com/billing</a>{" "}
+                      to enable AI images. Instant preview still works above.
+                    </div>
+                  </div>
+                )}
+
+                {/* Generic error */}
+                {aiError && !billingError && (
+                  <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-2xl px-3 py-2">
+                    <AlertCircle size={13} className="text-red-500 shrink-0" />
+                    <p className="text-xs text-red-700 font-medium">{aiError}</p>
+                  </div>
+                )}
+
+                {/* Generate button */}
+                <button onClick={runAiTryOn} disabled={aiLoading}
+                  data-testid="button-generate-ai"
+                  className="w-full flex items-center justify-center gap-2 h-11 rounded-2xl font-bold text-sm
+                    bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-lg shadow-violet-200
+                    active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed">
+                  {aiLoading ? (
+                    <><Loader2 size={15} className="animate-spin" /> Generating AI image… {elapsed}s</>
+                  ) : (
+                    <><Wand2 size={15} /> Generate AI Image</>
+                  )}
+                </button>
+                {!aiLoading && (
+                  <p className="text-center text-[10px] text-muted-foreground">
+                    Photorealistic result · usually 30–90 sec
+                  </p>
+                )}
               </div>
             )}
 
