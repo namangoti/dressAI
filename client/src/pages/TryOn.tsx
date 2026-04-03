@@ -388,23 +388,17 @@ export default function TryOn() {
         img.src = uploadedPhoto;
       });
 
-      // Use the pre-processed (background-stripped) garment from cache for cleaner input
-      // This prevents the model from confusing garment background with body shape
-      const cachedCanvas = cache.current.get(selectedId);
-      let garmentBase64: string;
-      if (cachedCanvas && cachedCanvas.width > 0) {
-        garmentBase64 = cachedCanvas.toDataURL("image/png");
-      } else {
-        // Fallback: fetch raw garment image
-        const garmentResp = await fetch(g.image);
-        const garmentBlob = await garmentResp.blob();
-        garmentBase64 = await new Promise<string>((res, rej) => {
-          const fr = new FileReader();
-          fr.onload  = () => res(fr.result as string);
-          fr.onerror = rej;
-          fr.readAsDataURL(garmentBlob);
-        });
-      }
+      // Send the raw garment product image (white background) to Replicate.
+      // IDM-VTON is trained on flat product photos — sending a transparent-background
+      // garment causes it to lose clothing boundaries and distort the body shape.
+      const garmentResp = await fetch(g.image);
+      const garmentBlob = await garmentResp.blob();
+      const garmentBase64 = await new Promise<string>((res, rej) => {
+        const fr = new FileReader();
+        fr.onload  = () => res(fr.result as string);
+        fr.onerror = rej;
+        fr.readAsDataURL(garmentBlob);
+      });
 
       const ctrl  = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 130_000);
