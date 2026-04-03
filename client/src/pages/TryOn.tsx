@@ -333,13 +333,15 @@ async function restoreBodyRegions(
       maskC.width  = aiW; maskC.height = aiH;
       const mCtx   = maskC.getContext("2d")!;
 
-      // Linear gradient: transparent above hip → opaque below hip
-      const feather = aiH * 0.05;
-      const grad    = mCtx.createLinearGradient(0, hipY_ai - feather, 0, hipY_ai + feather);
+      // Shift cut line 12% of image height below hipCY so the paste
+      // starts cleanly below the t-shirt hem rather than through it.
+      const cutY    = hipY_ai + aiH * 0.12;
+      const feather = aiH * 0.06;
+      const grad    = mCtx.createLinearGradient(0, cutY - feather, 0, cutY + feather);
       grad.addColorStop(0, "rgba(255,255,255,0)");
       grad.addColorStop(1, "rgba(255,255,255,1)");
       mCtx.fillStyle = grad;
-      mCtx.fillRect(0, Math.max(0, hipY_ai - feather), aiW, aiH);
+      mCtx.fillRect(0, Math.max(0, cutY - feather), aiW, aiH);
 
       pCtx.globalCompositeOperation = "destination-in";
       pCtx.drawImage(maskC, 0, 0);
@@ -560,6 +562,43 @@ export default function TryOn() {
         fr.readAsDataURL(garmentBlob);
       });
 
+      // Build a torso mask from pose keypoints so IDM-VTON knows exactly
+      // which region to replace, eliminating the original-clothing ghost.
+      // White = torso area (shoulders → hips, 20% outward padding).
+      // Black = everything else. Only generated when pose was detected.
+      let garmentMaskImage: string | undefined;
+      if (poseRegions?.detected && poseRegions.tops) {
+        const t = poseRegions.tops;
+        const refImg = await loadImage(uploadedPhoto);
+        const origW  = refImg.naturalWidth  || refImg.width  || 768;
+        const origH  = refImg.naturalHeight || refImg.height || 1024;
+        const sc     = Math.min(1, 1024 / Math.max(origW, origH));
+        const mW     = Math.round(origW * sc);
+        const mH     = Math.round(origH * sc);
+
+        const mc   = document.createElement("canvas");
+        mc.width   = mW; mc.height = mH;
+        const mCtx = mc.getContext("2d")!;
+
+        // Black background (preserve everywhere outside torso)
+        mCtx.fillStyle = "#000";
+        mCtx.fillRect(0, 0, mW, mH);
+
+        // White filled torso rectangle scaled to match the compressed image
+        const mx = Math.max(0,  t.x * sc);
+        const my = Math.max(0,  t.y * sc);
+        const mw = Math.min(mW - mx, t.w * sc);
+        const mh = Math.min(mH - my, t.h * sc);
+        const r  = Math.min(mw, mh) * 0.08;  // slight rounding
+        mCtx.fillStyle = "#fff";
+        mCtx.beginPath();
+        mCtx.roundRect(mx, my, mw, mh, r);
+        mCtx.fill();
+
+        garmentMaskImage = mc.toDataURL("image/png");
+        console.log("[mask] torso mask generated:", Math.round(mw), "×", Math.round(mh), "within", mW, "×", mH);
+      }
+
       const ctrl  = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 130_000);
       const resp  = await fetch("/api/tryon", {
@@ -570,6 +609,7 @@ export default function TryOn() {
           personImage:  compressed,
           garmentImage: garmentBase64,
           garmentName:  g.name,
+          ...(garmentMaskImage ? { garmentMaskImage } : {}),
         }),
       }).finally(() => clearTimeout(timer));
 

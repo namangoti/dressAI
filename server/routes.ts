@@ -20,8 +20,8 @@ export async function registerRoutes(
     });
 
     try {
-      const { personImage, garmentImage, garmentName } = req.body as {
-        personImage: string; garmentImage: string; garmentName?: string;
+      const { personImage, garmentImage, garmentName, garmentMaskImage } = req.body as {
+        personImage: string; garmentImage: string; garmentName?: string; garmentMaskImage?: string;
       };
 
       if (!personImage || !garmentImage) {
@@ -76,8 +76,11 @@ export async function registerRoutes(
                 garment_des:     garmentName || "a clothing item",
                 is_checked:      true,
                 is_checked_crop: true,
-                denoise_steps:   30,
+                denoise_steps:   40,
                 seed:            Math.floor(Math.random() * 2147483647),
+                // Explicit torso mask removes original clothing (blazer/jacket ghost).
+                // Only included when pose detection succeeded on the client.
+                ...(garmentMaskImage ? { mask_image: garmentMaskImage } : {}),
               },
             }),
           },
