@@ -589,14 +589,19 @@ export default function TryOn() {
         const my = Math.max(0,  t.y * sc);
         const mw = Math.min(mW - mx, t.w * sc);
         const mh = Math.min(mH - my, t.h * sc);
-        const r  = Math.min(mw, mh) * 0.08;  // slight rounding
-        mCtx.fillStyle = "#fff";
-        mCtx.beginPath();
-        mCtx.roundRect(mx, my, mw, mh, r);
-        mCtx.fill();
 
-        garmentMaskImage = mc.toDataURL("image/png");
-        console.log("[mask] torso mask generated:", Math.round(mw), "×", Math.round(mh), "within", mW, "×", mH);
+        if (mw > 0 && mh > 0) {
+          const r  = Math.min(mw, mh) * 0.08;  // slight rounding
+          mCtx.fillStyle = "#fff";
+          mCtx.beginPath();
+          mCtx.roundRect(mx, my, mw, mh, r);
+          mCtx.fill();
+          garmentMaskImage = mc.toDataURL("image/png");
+          console.log("[mask] torso mask generated:", Math.round(mw), "×", Math.round(mh), "within", mW, "×", mH);
+        } else {
+          // Degenerate keypoints — skip mask (model falls back to auto-detect)
+          console.warn("[mask] degenerate torso geometry, skipping mask");
+        }
       }
 
       const ctrl  = new AbortController();
