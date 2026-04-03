@@ -5,6 +5,7 @@ import {
   ChevronLeft, Check, Camera, Image as ImageIcon,
   RotateCcw, Share2, Heart, Ruler, Weight, Shirt, Sparkles,
   Loader2, AlertCircle, Clock, Wand2, ScanLine,
+  ZoomIn, ZoomOut, X, Maximize2, RefreshCw, Move,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { detectPoseRegions, type PoseRegions } from "@/lib/poseDetector";
@@ -227,11 +228,25 @@ export default function TryOn() {
   const [poseStatus,    setPoseStatus]    = useState<"idle"|"detecting"|"done"|"fallback">("idle");
 
   /* ── AI generation state ── */
-  const [aiLoading,     setAiLoading]     = useState(false);
-  const [aiError,       setAiError]       = useState<string | null>(null);
-  const [billingError,  setBillingError]  = useState(false);
-  const [elapsed,       setElapsed]       = useState(0);
+  const [aiLoading,    setAiLoading]    = useState(false);
+  const [aiError,      setAiError]      = useState<string | null>(null);
+  const [billingError, setBillingError] = useState(false);
+  const [elapsed,      setElapsed]      = useState(0);
+  const [aiResultUrl,  setAiResultUrl]  = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  /* ── Fullscreen preview + zoom state ── */
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [zoom,        setZoom]        = useState(1);
+  const [pan,         setPan]         = useState({ x: 0, y: 0 });
+  const [isPanning,   setIsPanning]   = useState(false);
+  const panStart = useRef({ mx: 0, my: 0, px: 0, py: 0 });
+  const imgRef   = useRef<HTMLImageElement>(null);
+
+  /* Reset zoom/pan when preview opens or closes */
+  useEffect(() => {
+    if (!previewOpen) { setZoom(1); setPan({ x: 0, y: 0 }); }
+  }, [previewOpen]);
 
   /* Elapsed-time ticker while AI is generating */
   useEffect(() => {
@@ -359,47 +374,58 @@ export default function TryOn() {
     try {
       const g = GARMENTS.find(x => x.id === selectedId)!;
 
-      // Compress person photo to reduce payload size
+      // Compress person photo — send at full natural size but max 1024px for quality
       const compressed = await new Promise<string>(resolve => {
         const img = new Image();
         img.onload = () => {
-          const scale = Math.min(1, 768 / Math.max(img.width, img.height));
+          const scale = Math.min(1, 1024 / Math.max(img.width, img.height));
           const c = document.createElement("canvas");
-          c.width = Math.round(img.width * scale);
+          c.width  = Math.round(img.width  * scale);
           c.height = Math.round(img.height * scale);
           c.getContext("2d")!.drawImage(img, 0, 0, c.width, c.height);
-          resolve(c.toDataURL("image/jpeg", 0.82));
+          resolve(c.toDataURL("image/jpeg", 0.92));
         };
         img.src = uploadedPhoto;
       });
 
-      // Convert garment PNG to base64
-      const garmentResp = await fetch(g.image);
-      const garmentBlob = await garmentResp.blob();
-      const garmentBase64 = await new Promise<string>((res, rej) => {
-        const fr = new FileReader();
-        fr.onload  = () => res(fr.result as string);
-        fr.onerror = rej;
-        fr.readAsDataURL(garmentBlob);
-      });
+      // Use the pre-processed (background-stripped) garment from cache for cleaner input
+      // This prevents the model from confusing garment background with body shape
+      const cachedCanvas = cache.current.get(selectedId);
+      let garmentBase64: string;
+      if (cachedCanvas && cachedCanvas.width > 0) {
+        garmentBase64 = cachedCanvas.toDataURL("image/png");
+      } else {
+        // Fallback: fetch raw garment image
+        const garmentResp = await fetch(g.image);
+        const garmentBlob = await garmentResp.blob();
+        garmentBase64 = await new Promise<string>((res, rej) => {
+          const fr = new FileReader();
+          fr.onload  = () => res(fr.result as string);
+          fr.onerror = rej;
+          fr.readAsDataURL(garmentBlob);
+        });
+      }
 
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 120_000);
-      const resp = await fetch("/api/tryon", {
+      const ctrl  = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 130_000);
+      const resp  = await fetch("/api/tryon", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: ctrl.signal,
-        body: JSON.stringify({ personImage: compressed, garmentImage: garmentBase64 }),
+        body: JSON.stringify({
+          personImage:  compressed,
+          garmentImage: garmentBase64,
+          garmentName:  g.name,
+        }),
       }).finally(() => clearTimeout(timer));
 
       const data = await resp.json();
 
-      if (resp.status === 402) {
-        setBillingError(true);
-        return;
-      }
+      if (resp.status === 402) { setBillingError(true); return; }
       if (!resp.ok) throw new Error(data.error || "AI generation failed");
 
+      // Store result separately so garment switching doesn't lose it
+      setAiResultUrl(data.resultUrl);
       setTryOnUrl(data.resultUrl);
       setTryOnMode("ai");
     } catch (err: any) {
@@ -711,7 +737,7 @@ export default function TryOn() {
                     bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-lg shadow-violet-200
                     active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed">
                   {aiLoading ? (
-                    <><Loader2 size={15} className="animate-spin" /> Generating AI image… {elapsed}s</>
+                    <><Loader2 size={15} className="animate-spin" /> Generating… {elapsed}s</>
                   ) : (
                     <><Wand2 size={15} /> Generate Final Try-On</>
                   )}
@@ -720,6 +746,16 @@ export default function TryOn() {
                   <p className="text-center text-[10px] text-muted-foreground">
                     Photorealistic result · usually 30–90 sec
                   </p>
+                )}
+
+                {/* View Full Preview button — shown after AI result is ready */}
+                {aiResultUrl && !aiLoading && (
+                  <button onClick={() => setPreviewOpen(true)}
+                    data-testid="button-view-preview"
+                    className="w-full flex items-center justify-center gap-2 h-11 rounded-2xl font-bold text-sm
+                      bg-emerald-600 text-white shadow-lg shadow-emerald-200 active:scale-95 transition-all">
+                    <Maximize2 size={15} /> View Full Preview
+                  </button>
                 )}
               </div>
             )}
@@ -798,6 +834,146 @@ export default function TryOn() {
           </div>
         )}
       </div>
+
+      {/* ══════════════════════════════════════════════════════════
+          FULLSCREEN PREVIEW MODAL — with zoom + pan
+      ══════════════════════════════════════════════════════════ */}
+      {previewOpen && aiResultUrl && (
+        <div className="fixed inset-0 z-50 bg-black flex flex-col"
+          data-testid="modal-preview">
+
+          {/* ── Top toolbar ── */}
+          <div className="flex items-center justify-between px-4 py-3 bg-black/80 backdrop-blur shrink-0 border-b border-white/10">
+            <div>
+              <p className="text-white text-sm font-bold">Final Try-On Preview</p>
+              <p className="text-white/50 text-[10px]">{garment.name} · {Math.round(zoom * 100)}% zoom</p>
+            </div>
+            <div className="flex items-center gap-2">
+              {/* Zoom out */}
+              <button onClick={() => { setZoom(z => Math.max(1, parseFloat((z - 0.5).toFixed(1)))); setPan({ x: 0, y: 0 }); }}
+                disabled={zoom <= 1}
+                className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-white disabled:opacity-30 active:bg-white/20"
+                data-testid="button-zoom-out">
+                <ZoomOut size={16} />
+              </button>
+              {/* Zoom label */}
+              <span className="text-white text-xs font-mono w-10 text-center">{Math.round(zoom * 100)}%</span>
+              {/* Zoom in */}
+              <button onClick={() => setZoom(z => Math.min(5, parseFloat((z + 0.5).toFixed(1))))}
+                disabled={zoom >= 5}
+                className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-white disabled:opacity-30 active:bg-white/20"
+                data-testid="button-zoom-in">
+                <ZoomIn size={16} />
+              </button>
+              {/* Reset */}
+              <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}
+                className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-white active:bg-white/20"
+                data-testid="button-zoom-reset">
+                <RefreshCw size={14} />
+              </button>
+              {/* Close */}
+              <button onClick={() => setPreviewOpen(false)}
+                className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-white active:bg-white/40"
+                data-testid="button-close-preview">
+                <X size={18} />
+              </button>
+            </div>
+          </div>
+
+          {/* ── Image viewport ── */}
+          <div className="flex-1 overflow-hidden relative select-none"
+            style={{ cursor: zoom > 1 ? (isPanning ? "grabbing" : "grab") : "default" }}
+
+            /* Mouse drag-to-pan */
+            onMouseDown={e => {
+              if (zoom <= 1) return;
+              e.preventDefault();
+              setIsPanning(true);
+              panStart.current = { mx: e.clientX, my: e.clientY, px: pan.x, py: pan.y };
+            }}
+            onMouseMove={e => {
+              if (!isPanning) return;
+              const dx = (e.clientX - panStart.current.mx) / zoom;
+              const dy = (e.clientY - panStart.current.my) / zoom;
+              setPan({ x: panStart.current.px + dx, y: panStart.current.py + dy });
+            }}
+            onMouseUp={() => setIsPanning(false)}
+            onMouseLeave={() => setIsPanning(false)}
+
+            /* Touch drag-to-pan */
+            onTouchStart={e => {
+              if (zoom <= 1 || e.touches.length !== 1) return;
+              setIsPanning(true);
+              panStart.current = { mx: e.touches[0].clientX, my: e.touches[0].clientY, px: pan.x, py: pan.y };
+            }}
+            onTouchMove={e => {
+              if (!isPanning || e.touches.length !== 1) return;
+              const dx = (e.touches[0].clientX - panStart.current.mx) / zoom;
+              const dy = (e.touches[0].clientY - panStart.current.my) / zoom;
+              setPan({ x: panStart.current.px + dx, y: panStart.current.py + dy });
+            }}
+            onTouchEnd={() => setIsPanning(false)}
+
+            /* Scroll / pinch-to-zoom */
+            onWheel={e => {
+              e.preventDefault();
+              const delta = e.deltaY > 0 ? -0.25 : 0.25;
+              setZoom(z => Math.min(5, Math.max(1, parseFloat((z + delta).toFixed(2)))));
+              if (zoom + delta <= 1) setPan({ x: 0, y: 0 });
+            }}
+          >
+            <div className="w-full h-full flex items-center justify-center">
+              <img
+                ref={imgRef}
+                src={aiResultUrl}
+                alt="Final Try-On Result"
+                draggable={false}
+                data-testid="img-preview-result"
+                style={{
+                  transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`,
+                  transformOrigin: "center center",
+                  transition: isPanning ? "none" : "transform 0.15s ease",
+                  maxWidth:  "100%",
+                  maxHeight: "100%",
+                  objectFit: "contain",
+                  userSelect: "none",
+                  WebkitUserDrag: "none" as any,
+                }}
+              />
+            </div>
+
+            {/* Pan hint — show only when zoomed in and not yet panning */}
+            {zoom > 1 && !isPanning && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur rounded-full px-3 py-1.5 flex items-center gap-1.5 pointer-events-none">
+                <Move size={11} className="text-white/70" />
+                <span className="text-white/70 text-[10px] font-medium">Drag to pan</span>
+              </div>
+            )}
+          </div>
+
+          {/* ── Bottom: side-by-side comparison strip ── */}
+          <div className="shrink-0 bg-black/80 border-t border-white/10 px-4 py-3">
+            <p className="text-white/50 text-[10px] uppercase tracking-wider mb-2 font-semibold">Before / After</p>
+            <div className="flex gap-3">
+              {/* Original */}
+              <div className="flex-1 rounded-2xl overflow-hidden border border-white/15" style={{ aspectRatio: "3/4", maxHeight: 120 }}>
+                {uploadedPhoto && <img src={uploadedPhoto} alt="Original" className="w-full h-full object-cover object-top" />}
+                <div className="absolute bottom-1 left-1 bg-black/60 rounded-full px-2 py-0.5">
+                  <span className="text-white text-[8px] font-bold">Original</span>
+                </div>
+              </div>
+              {/* AI result */}
+              <div className="flex-1 rounded-2xl overflow-hidden border-2 border-emerald-500/60 relative" style={{ aspectRatio: "3/4", maxHeight: 120 }}>
+                <img src={aiResultUrl} alt="Try-On" className="w-full h-full object-contain bg-black" />
+                <div className="absolute bottom-1 left-1 bg-emerald-600/90 rounded-full px-2 py-0.5">
+                  <span className="text-white text-[8px] font-bold">Try-On</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      )}
     </MobileLayout>
   );
 }

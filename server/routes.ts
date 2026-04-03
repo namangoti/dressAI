@@ -20,8 +20,8 @@ export async function registerRoutes(
     });
 
     try {
-      const { personImage, garmentImage } = req.body as {
-        personImage: string; garmentImage: string;
+      const { personImage, garmentImage, garmentName } = req.body as {
+        personImage: string; garmentImage: string; garmentName?: string;
       };
 
       if (!personImage || !garmentImage) {
@@ -48,11 +48,11 @@ export async function registerRoutes(
               input: {
                 human_img:       personImage,
                 garm_img:        garmentImage,
-                garment_des:     "a clothing item",
+                garment_des:     garmentName || "a clothing item",
                 is_checked:      true,
-                is_checked_crop: false,
-                denoise_steps:   20,
-                seed:            42,
+                is_checked_crop: true,
+                denoise_steps:   30,
+                seed:            Math.floor(Math.random() * 2147483647),
               },
             }),
           },
