@@ -4,9 +4,10 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   ChevronLeft, Check, Camera, Image as ImageIcon,
   RotateCcw, Share2, Heart, Ruler, Weight, Shirt, Sparkles,
-  Loader2, AlertCircle, Clock, Wand2,
+  Loader2, AlertCircle, Clock, Wand2, ScanLine,
 } from "lucide-react";
 import { useLocation } from "wouter";
+import { detectPoseRegions, type PoseRegions } from "@/lib/poseDetector";
 
 import garment1 from "@/assets/images/tshirt-black.png";
 import garment2 from "@/assets/images/tshirt-white.png";
@@ -129,11 +130,16 @@ function processGarment(src: string): Promise<HTMLCanvasElement> {
   });
 }
 
-/** Composite a pre-processed garment canvas onto a person data-URL. */
+/**
+ * Composite a garment onto a person photo.
+ * Uses detected body regions when available; falls back to proportional
+ * estimates if pose detection didn't succeed.
+ */
 async function composite(
   personDataUrl: string,
   garmentCanvas: HTMLCanvasElement,
   type: GarmentType,
+  poseRegions?: PoseRegions | null,
 ): Promise<string> {
   const person = await loadImage(personDataUrl);
   const pw = person.naturalWidth  || person.width  || 400;
@@ -143,20 +149,52 @@ async function composite(
   out.width  = pw;
   out.height = ph;
   const ctx  = out.getContext("2d");
-  if (!ctx) return personDataUrl; // fallback — return original photo
+  if (!ctx) return personDataUrl;
 
   ctx.drawImage(person, 0, 0, pw, ph);
 
   if (garmentCanvas.width > 0 && garmentCanvas.height > 0) {
-    const yStart = type === "tops"    ? ph * 0.15 : ph * 0.46;
-    const yEnd   = type === "bottoms" ? ph * 0.97 : ph * 0.60;
-    const garH   = yEnd - yStart;
-    const garW   = garH * (garmentCanvas.width / garmentCanvas.height);
-    const garX   = (pw - garW) / 2;
+    let garX: number, garY: number, garW: number, garH: number;
 
-    ctx.globalAlpha = 0.92;
-    ctx.drawImage(garmentCanvas, garX, yStart, garW, garH);
-    ctx.globalAlpha = 1;
+    // ── Pose-based placement ─────────────────────────────────
+    const region = poseRegions?.detected
+      ? (type === "tops" ? poseRegions.tops : poseRegions.bottoms)
+      : null;
+
+    if (region) {
+      // Maintain the garment's aspect ratio inside the detected region
+      const regionAR = region.w / region.h;
+      const garAR    = garmentCanvas.width / garmentCanvas.height;
+
+      if (garAR > regionAR) {
+        // garment is wider — fit by width
+        garW = region.w;
+        garH = garW / garAR;
+      } else {
+        // garment is taller — fit by height
+        garH = region.h;
+        garW = garH * garAR;
+      }
+      garX = region.x + (region.w - garW) / 2;
+      garY = region.y + (region.h - garH) / 2;
+    } else {
+      // ── Proportional fallback (no pose detected) ─────────────
+      const yStart = type === "tops"    ? ph * 0.14 : ph * 0.46;
+      const yEnd   = type === "bottoms" ? ph * 0.98 : ph * 0.62;
+      garH = yEnd - yStart;
+      garW = garH * (garmentCanvas.width / garmentCanvas.height);
+      garX = (pw - garW) / 2;
+      garY = yStart;
+    }
+
+    // Soft shadow beneath garment for depth
+    ctx.save();
+    ctx.shadowColor  = "rgba(0,0,0,0.18)";
+    ctx.shadowBlur   = 12;
+    ctx.shadowOffsetY = 4;
+    ctx.globalAlpha  = 0.93;
+    ctx.drawImage(garmentCanvas, garX, garY, garW, garH);
+    ctx.restore();
   }
 
   return out.toDataURL("image/jpeg", 0.93);
@@ -182,6 +220,11 @@ export default function TryOn() {
   const [tryOnUrl,    setTryOnUrl]    = useState<string | null>(null);
   const [tryOnMode,   setTryOnMode]   = useState<"canvas" | "ai">("canvas");
   const [compositing, setCompositing] = useState(false);
+
+  /* ── pose detection ── */
+  const [poseRegions,   setPoseRegions]   = useState<PoseRegions | null>(null);
+  const [poseDetecting, setPoseDetecting] = useState(false);
+  const [poseStatus,    setPoseStatus]    = useState<"idle"|"detecting"|"done"|"fallback">("idle");
 
   /* ── AI generation state ── */
   const [aiLoading,     setAiLoading]     = useState(false);
@@ -216,18 +259,52 @@ export default function TryOn() {
     ).finally(() => setCacheReady(true));
   }, []);
 
-  /* Auto-composite whenever photo or garment changes */
-  const doComposite = useCallback(async (photo: string, garmentId: number) => {
+  /* Run pose detection whenever a new photo is uploaded */
+  useEffect(() => {
+    if (!uploadedPhoto) {
+      setPoseRegions(null);
+      setPoseStatus("idle");
+      return;
+    }
+    setPoseStatus("detecting");
+    setPoseDetecting(true);
+
+    const img = new Image();
+    img.onload = () => {
+      detectPoseRegions(img)
+        .then(regions => {
+          setPoseRegions(regions);
+          setPoseStatus(regions.detected ? "done" : "fallback");
+        })
+        .catch(() => {
+          setPoseRegions(null);
+          setPoseStatus("fallback");
+        })
+        .finally(() => setPoseDetecting(false));
+    };
+    img.onerror = () => {
+      setPoseDetecting(false);
+      setPoseStatus("fallback");
+    };
+    img.src = uploadedPhoto;
+  }, [uploadedPhoto]);
+
+  /* Auto-composite whenever photo, garment, cache, or pose regions change */
+  const doComposite = useCallback(async (
+    photo: string,
+    garmentId: number,
+    regions: PoseRegions | null,
+  ) => {
     const garmentCanvas = cache.current.get(garmentId);
     if (!garmentCanvas) return;
     const g = GARMENTS.find(x => x.id === garmentId)!;
     setCompositing(true);
     try {
-      const result = await composite(photo, garmentCanvas, g.type);
+      const result = await composite(photo, garmentCanvas, g.type, regions);
       setTryOnUrl(result);
+      setTryOnMode("canvas");
     } catch (err: any) {
       console.warn("[composite] failed:", err?.message ?? String(err));
-      // Still show the original uploaded photo so the user sees something
       setTryOnUrl(photo);
     } finally {
       setCompositing(false);
@@ -235,12 +312,12 @@ export default function TryOn() {
   }, []);
 
   useEffect(() => {
-    if (uploadedPhoto && cacheReady) {
-      doComposite(uploadedPhoto, selectedId);
-    } else {
+    if (uploadedPhoto && cacheReady && !poseDetecting) {
+      doComposite(uploadedPhoto, selectedId, poseRegions);
+    } else if (!uploadedPhoto) {
       setTryOnUrl(null);
     }
-  }, [uploadedPhoto, selectedId, cacheReady, doComposite]);
+  }, [uploadedPhoto, selectedId, cacheReady, poseDetecting, poseRegions, doComposite]);
 
   const garment    = GARMENTS.find(g => g.id === selectedId)!;
   const fallbackUrl = gender === "man" ? garment.fallbackM : garment.fallbackF;
@@ -517,6 +594,17 @@ export default function TryOn() {
                   className="w-full h-full object-cover object-top" />
               )}
 
+              {/* Pose-detecting overlay */}
+              {poseDetecting && !compositing && !aiLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                  <div className="bg-white/95 backdrop-blur rounded-2xl px-5 py-3 flex flex-col items-center gap-2 shadow-xl">
+                    <ScanLine className="w-6 h-6 text-primary animate-pulse" />
+                    <p className="text-xs font-bold text-foreground">Detecting body…</p>
+                    <p className="text-[10px] text-muted-foreground">Aligning outfit to your shape</p>
+                  </div>
+                </div>
+              )}
+
               {/* Canvas compositing shimmer */}
               {compositing && !aiLoading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/10">
@@ -551,13 +639,19 @@ export default function TryOn() {
               </div>
 
               {/* Result mode badge */}
-              {tryOnUrl && !compositing && !aiLoading && (
+              {tryOnUrl && !compositing && !aiLoading && !poseDetecting && (
                 <div className={`absolute top-3 right-3 backdrop-blur-sm rounded-full px-2.5 py-1 flex items-center gap-1
-                  ${tryOnMode === "ai" ? "bg-violet-600/90" : "bg-primary/90"}`}>
-                  <Sparkles size={10} className="text-yellow-300" />
-                  <span className="text-white text-[10px] font-bold">
-                    {tryOnMode === "ai" ? "AI Result" : "Preview"}
-                  </span>
+                  ${tryOnMode === "ai"
+                    ? "bg-violet-600/90"
+                    : poseStatus === "done"
+                      ? "bg-emerald-600/90"
+                      : "bg-primary/90"}`}>
+                  {tryOnMode === "ai"
+                    ? <><Sparkles size={10} className="text-yellow-300" /><span className="text-white text-[10px] font-bold">AI Result</span></>
+                    : poseStatus === "done"
+                      ? <><ScanLine size={10} className="text-white" /><span className="text-white text-[10px] font-bold">Body-fit</span></>
+                      : <><Sparkles size={10} className="text-yellow-300" /><span className="text-white text-[10px] font-bold">Preview</span></>
+                  }
                 </div>
               )}
 
