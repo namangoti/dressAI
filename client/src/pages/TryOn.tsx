@@ -613,7 +613,7 @@ export default function TryOn() {
         body: JSON.stringify({
           personImage:  compressed,
           garmentImage: garmentBase64,
-          garmentName:  g.name,
+          garmentName:  `${g.name}, size ${size}, for a ${height} cm ${weight} kg ${gender}`,
           ...(garmentMaskImage ? { garmentMaskImage } : {}),
         }),
       }).finally(() => clearTimeout(timer));
@@ -709,6 +709,28 @@ export default function TryOn() {
                       <input type="file" accept="image/jpeg,image/png,image/webp" capture="user" className="hidden"
                         onChange={e => { const f = e.target.files?.[0]; if (f) readFile(f, setUploadedPhoto); }} />
                     </label>
+                  </div>
+                )}
+
+                {/* Body scan status — visible while/after pose detection runs */}
+                {uploadedPhoto && poseStatus !== "idle" && (
+                  <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground" data-testid="status-body-scan">
+                    {poseStatus === "detecting" ? (
+                      <>
+                        <span className="inline-block w-2 h-2 rounded-full bg-primary animate-pulse" />
+                        <span>Scanning your body…</span>
+                      </>
+                    ) : poseStatus === "done" ? (
+                      <>
+                        <Check size={12} className="text-green-600 shrink-0" />
+                        <span className="text-green-700">Body scan complete</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="inline-block w-2 h-2 rounded-full bg-amber-400 shrink-0" />
+                        <span>Using standard fit</span>
+                      </>
+                    )}
                   </div>
                 )}
 

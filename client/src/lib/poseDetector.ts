@@ -92,7 +92,7 @@ export async function detectPoseRegions(
     const torsoH       = hipCY - shoulderCY;
 
     // ── Tops region ──────────────────────────────────────────────
-    const tW: number = shoulderSpan * 1.55;
+    const tW: number = shoulderSpan * 1.30;
     const tH: number = torsoH * 1.25;
     const tops: BodyRegion = {
       x: shoulderCX - tW / 2,
