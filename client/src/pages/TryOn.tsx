@@ -242,25 +242,33 @@ async function restoreBodyRegions(
   const sx = aiW  / origW;
   const sy = aiH  / origH;
 
-  // ── Derive face ellipse and hip cut line ────────────────────────
-  let faceCX: number, faceCY: number, faceRX: number, faceRY: number;
+  // ── Derive face ellipse, neckY cut, and hip cut line ────────────
+  // The face restore region spans from forehead (face.y) down to neckY,
+  // using neckY as the explicit lower boundary as specified.
+  let faceCX: number, faceRX: number;
+  let faceTop_ai: number, restoreBottom_ai: number;  // vertical span
   let hipY_ai: number;
 
   if (poseRegions?.detected && poseRegions.face && poseRegions.hipCY !== null) {
     const f = poseRegions.face;
-    faceCX  = (f.x + f.w / 2) * sx;
-    faceCY  = (f.y + f.h / 2) * sy;
-    faceRX  = (f.w / 2 + 4)   * sx;   // slight outward padding
-    faceRY  = (f.h / 2 + 8)   * sy;
-    hipY_ai = poseRegions.hipCY * sy;
+    faceCX          = (f.x + f.w / 2) * sx;
+    faceRX          = (f.w / 2 + 4)   * sx;  // slight outward padding
+    faceTop_ai      = f.y * sy;
+    // Use neckY as the lower boundary (forehead → neck); falls back to chin if absent
+    restoreBottom_ai = (poseRegions.neckY ?? (f.y + f.h)) * sy;
+    hipY_ai          = poseRegions.hipCY * sy;
   } else {
-    // Proportional fallback (no pose detected)
-    faceCX  = aiW * 0.50;
-    faceCY  = aiH * 0.12;
-    faceRX  = aiW * 0.17;
-    faceRY  = aiH * 0.13;
-    hipY_ai = aiH * 0.60;
+    // Proportional fallback: face occupies top ~22% height, centred, ~30% width
+    faceCX           = aiW * 0.50;
+    faceRX           = aiW * 0.15;           // ≈ half of 30% width
+    faceTop_ai       = aiH * 0.01;           // near the very top
+    restoreBottom_ai = aiH * 0.22;           // down to 22% height
+    hipY_ai          = aiH * 0.60;
   }
+
+  // Derived ellipse geometry from the forehead→neckY span
+  const faceCY = (faceTop_ai + restoreBottom_ai) / 2;
+  const faceRY = (restoreBottom_ai - faceTop_ai) / 2;
 
   /**
    * Helper: paint an elliptical feathered white mask onto `mCtx`.
