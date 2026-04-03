@@ -33,11 +33,11 @@ export async function registerRoutes(
 
       console.log("[tryon] Fetching latest model version…");
 
-      // Step 1: resolve the latest published version of yisol/idm-vton
+      // Step 1: resolve the latest published version of cuuupid/idm-vton
       let version: string;
       try {
         const vr = await fetchWithTimeout(
-          "https://api.replicate.com/v1/models/yisol/idm-vton/versions",
+          "https://api.replicate.com/v1/models/cuuupid/idm-vton/versions",
           { headers: { Authorization: `Bearer ${token}` } },
           15_000
         );
@@ -48,7 +48,7 @@ export async function registerRoutes(
         }
         const vd = await vr.json() as any;
         version = vd?.results?.[0]?.id;
-        if (!version) throw new Error("No published versions found for yisol/idm-vton");
+        if (!version) throw new Error("No published versions found for cuuupid/idm-vton");
         console.log("[tryon] Using version:", version);
       } catch (e: any) {
         console.error("[tryon] Version fetch error:", e.message);
