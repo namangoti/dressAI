@@ -51,11 +51,15 @@ const SKIN_TONES = [
 
 /* ── Canvas utilities ─────────────────────────────────────── */
 
-function loadImage(src: string): Promise<HTMLImageElement> {
+/**
+ * Load an <img> from any src. Rejects with a proper Error (not a browser Event).
+ */
+function loadImage(src: string, crossOrigin = false): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
+    if (crossOrigin) img.crossOrigin = "anonymous";
     img.onload  = () => resolve(img);
-    img.onerror = reject;
+    img.onerror = () => reject(new Error(`Image load failed: ${src.slice(0, 80)}`));
     img.src = src;
   });
 }
@@ -92,24 +96,36 @@ function stripBackground(imgData: ImageData): ImageData {
   return out;
 }
 
-/** Load a garment PNG and return a canvas with background stripped. Cached by caller. */
-async function processGarment(src: string): Promise<HTMLCanvasElement> {
-  const resp = await fetch(src);
-  const blob = await resp.blob();
-  const base64: string = await new Promise((res, rej) => {
-    const fr = new FileReader();
-    fr.onload  = () => res(fr.result as string);
-    fr.onerror = rej;
-    fr.readAsDataURL(blob);
+/**
+ * Load a garment PNG as a canvas with background stripped.
+ * Uses same-origin asset URL directly — no fetch/FileReader needed.
+ */
+function processGarment(src: string): Promise<HTMLCanvasElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const w = img.naturalWidth  || 300;
+        const h = img.naturalHeight || 300;
+        const c   = document.createElement("canvas");
+        c.width   = w;
+        c.height  = h;
+        const ctx = c.getContext("2d", { willReadFrequently: true });
+        if (!ctx) { resolve(c); return; } // canvas unavailable — return blank, don't crash
+        ctx.drawImage(img, 0, 0);
+        try {
+          ctx.putImageData(stripBackground(ctx.getImageData(0, 0, w, h)), 0, 0);
+        } catch {
+          // getImageData can fail (CORS/security) — still resolve with drawn canvas
+        }
+        resolve(c);
+      } catch (err) {
+        reject(err instanceof Error ? err : new Error(String(err)));
+      }
+    };
+    img.onerror = () => reject(new Error(`Failed to load garment: ${src.slice(0, 60)}`));
+    img.src = src;
   });
-  const img = await loadImage(base64);
-  const c   = document.createElement("canvas");
-  c.width   = img.width;
-  c.height  = img.height;
-  const ctx = c.getContext("2d", { willReadFrequently: true })!;
-  ctx.drawImage(img, 0, 0);
-  ctx.putImageData(stripBackground(ctx.getImageData(0, 0, c.width, c.height)), 0, 0);
-  return c;
 }
 
 /** Composite a pre-processed garment canvas onto a person data-URL. */
@@ -119,23 +135,28 @@ async function composite(
   type: GarmentType,
 ): Promise<string> {
   const person = await loadImage(personDataUrl);
+  const pw = person.naturalWidth  || person.width  || 400;
+  const ph = person.naturalHeight || person.height || 600;
 
-  const out   = document.createElement("canvas");
-  out.width   = person.width;
-  out.height  = person.height;
-  const ctx   = out.getContext("2d")!;
+  const out = document.createElement("canvas");
+  out.width  = pw;
+  out.height = ph;
+  const ctx  = out.getContext("2d");
+  if (!ctx) return personDataUrl; // fallback — return original photo
 
-  ctx.drawImage(person, 0, 0);
+  ctx.drawImage(person, 0, 0, pw, ph);
 
-  const yStart = type === "tops"    ? person.height * 0.15 : person.height * 0.46;
-  const yEnd   = type === "bottoms" ? person.height * 0.97 : person.height * 0.60;
-  const garH   = yEnd - yStart;
-  const garW   = garH * (garmentCanvas.width / garmentCanvas.height);
-  const garX   = (person.width - garW) / 2;
+  if (garmentCanvas.width > 0 && garmentCanvas.height > 0) {
+    const yStart = type === "tops"    ? ph * 0.15 : ph * 0.46;
+    const yEnd   = type === "bottoms" ? ph * 0.97 : ph * 0.60;
+    const garH   = yEnd - yStart;
+    const garW   = garH * (garmentCanvas.width / garmentCanvas.height);
+    const garX   = (pw - garW) / 2;
 
-  ctx.globalAlpha = 0.92;
-  ctx.drawImage(garmentCanvas, garX, yStart, garW, garH);
-  ctx.globalAlpha = 1;
+    ctx.globalAlpha = 0.92;
+    ctx.drawImage(garmentCanvas, garX, yStart, garW, garH);
+    ctx.globalAlpha = 1;
+  }
 
   return out.toDataURL("image/jpeg", 0.93);
 }
@@ -165,11 +186,13 @@ export default function TryOn() {
 
   /* Preload & process all garments once on mount */
   useEffect(() => {
-    Promise.all(
+    Promise.allSettled(
       GARMENTS.map(g =>
-        processGarment(g.image).then(c => cache.current.set(g.id, c))
+        processGarment(g.image)
+          .then(c => cache.current.set(g.id, c))
+          .catch(err => console.warn("[preload] garment", g.id, "failed:", err.message))
       )
-    ).then(() => setCacheReady(true));
+    ).finally(() => setCacheReady(true));
   }, []);
 
   /* Auto-composite whenever photo or garment changes */
@@ -181,6 +204,8 @@ export default function TryOn() {
     try {
       const result = await composite(photo, garmentCanvas, g.type);
       setTryOnUrl(result);
+    } catch (err) {
+      console.warn("[composite] failed:", err);
     } finally {
       setCompositing(false);
     }
