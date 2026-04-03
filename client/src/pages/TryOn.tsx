@@ -201,6 +201,157 @@ async function composite(
   return out.toDataURL("image/jpeg", 0.93);
 }
 
+/**
+ * Client-side body restoration pass applied after the AI try-on result arrives.
+ *
+ * Problem: IDM-VTON regenerates the full image at a lower resolution (~768×1024),
+ * causing (1) face blur and (2) garment hem misalignment.
+ *
+ * Fix: Using pose keypoints, copy the face region from the original high-res
+ * photo back onto the AI result (fixes blur), and for tops garments also copy
+ * the lower body below the hip line (anchors the hem naturally).
+ *
+ * Both regions use feathered ellipse/gradient masks for smooth blending.
+ */
+async function restoreBodyRegions(
+  aiResultUrl:     string,
+  originalPhotoUrl: string,
+  poseRegions:     PoseRegions | null,
+  garmentType:     GarmentType,
+): Promise<string> {
+  // Load AI result with crossOrigin so we can manipulate pixels in canvas
+  const [aiImg, origImg] = await Promise.all([
+    loadImage(aiResultUrl, true),
+    loadImage(originalPhotoUrl),
+  ]);
+
+  const aiW   = aiImg.naturalWidth   || aiImg.width   || 768;
+  const aiH   = aiImg.naturalHeight  || aiImg.height  || 1024;
+  const origW = origImg.naturalWidth  || origImg.width  || 768;
+  const origH = origImg.naturalHeight || origImg.height || 1024;
+
+  const out = document.createElement("canvas");
+  out.width  = aiW;
+  out.height = aiH;
+  const ctx  = out.getContext("2d")!;
+
+  // Base layer: AI result
+  ctx.drawImage(aiImg, 0, 0, aiW, aiH);
+
+  // Scale factors from original photo pixels → AI result pixels
+  const sx = aiW  / origW;
+  const sy = aiH  / origH;
+
+  // ── Derive face ellipse and hip cut line ────────────────────────
+  let faceCX: number, faceCY: number, faceRX: number, faceRY: number;
+  let hipY_ai: number;
+
+  if (poseRegions?.detected && poseRegions.face && poseRegions.hipCY !== null) {
+    const f = poseRegions.face;
+    faceCX  = (f.x + f.w / 2) * sx;
+    faceCY  = (f.y + f.h / 2) * sy;
+    faceRX  = (f.w / 2 + 4)   * sx;   // slight outward padding
+    faceRY  = (f.h / 2 + 8)   * sy;
+    hipY_ai = poseRegions.hipCY * sy;
+  } else {
+    // Proportional fallback (no pose detected)
+    faceCX  = aiW * 0.50;
+    faceCY  = aiH * 0.12;
+    faceRX  = aiW * 0.17;
+    faceRY  = aiH * 0.13;
+    hipY_ai = aiH * 0.60;
+  }
+
+  /**
+   * Helper: paint an elliptical feathered white mask onto `mCtx`.
+   * Technique: create a 2×2 radial gradient canvas (opaque centre → transparent
+   * edge) and scale-draw it into the desired ellipse bounding box.  This avoids
+   * canvas transform tricks and works in all browsers.
+   */
+  function drawEllipseMask(
+    mCtx: CanvasRenderingContext2D,
+    cx: number, cy: number,
+    rx: number, ry: number,
+    feather: number,
+  ) {
+    const g2    = document.createElement("canvas");
+    g2.width    = 4; g2.height = 4;
+    const g2Ctx = g2.getContext("2d")!;
+    const grad  = g2Ctx.createRadialGradient(2, 2, 0.4, 2, 2, 2);
+    grad.addColorStop(0,    "rgba(255,255,255,1)");
+    grad.addColorStop(0.55, "rgba(255,255,255,1)");
+    grad.addColorStop(1,    "rgba(255,255,255,0)");
+    g2Ctx.fillStyle = grad;
+    g2Ctx.fillRect(0, 0, 4, 4);
+
+    const bx = cx - rx - feather;
+    const by = cy - ry - feather;
+    mCtx.drawImage(g2, bx, by, (rx + feather) * 2, (ry + feather) * 2);
+  }
+
+  // ── 1. FACE RESTORE ─────────────────────────────────────────────
+  // Copy original face onto AI result with feathered ellipse mask
+  try {
+    const patch  = document.createElement("canvas");
+    patch.width  = aiW; patch.height = aiH;
+    const pCtx   = patch.getContext("2d")!;
+    pCtx.drawImage(origImg, 0, 0, aiW, aiH);
+
+    const maskC  = document.createElement("canvas");
+    maskC.width  = aiW; maskC.height = aiH;
+    const mCtx   = maskC.getContext("2d")!;
+    const feather = Math.min(faceRX, faceRY) * 0.45;
+    drawEllipseMask(mCtx, faceCX, faceCY, faceRX, faceRY, feather);
+
+    pCtx.globalCompositeOperation = "destination-in";
+    pCtx.drawImage(maskC, 0, 0);
+    pCtx.globalCompositeOperation = "source-over";
+
+    ctx.drawImage(patch, 0, 0);
+  } catch (e) {
+    console.warn("[restore] face patch failed:", e);
+  }
+
+  // ── 2. LOWER BODY RESTORE (tops only) ───────────────────────────
+  // Copy original legs/lower body below hip line with feathered top edge
+  if (garmentType === "tops") {
+    try {
+      const patch  = document.createElement("canvas");
+      patch.width  = aiW; patch.height = aiH;
+      const pCtx   = patch.getContext("2d")!;
+      pCtx.drawImage(origImg, 0, 0, aiW, aiH);
+
+      const maskC  = document.createElement("canvas");
+      maskC.width  = aiW; maskC.height = aiH;
+      const mCtx   = maskC.getContext("2d")!;
+
+      // Linear gradient: transparent above hip → opaque below hip
+      const feather = aiH * 0.05;
+      const grad    = mCtx.createLinearGradient(0, hipY_ai - feather, 0, hipY_ai + feather);
+      grad.addColorStop(0, "rgba(255,255,255,0)");
+      grad.addColorStop(1, "rgba(255,255,255,1)");
+      mCtx.fillStyle = grad;
+      mCtx.fillRect(0, Math.max(0, hipY_ai - feather), aiW, aiH);
+
+      pCtx.globalCompositeOperation = "destination-in";
+      pCtx.drawImage(maskC, 0, 0);
+      pCtx.globalCompositeOperation = "source-over";
+
+      ctx.drawImage(patch, 0, 0);
+    } catch (e) {
+      console.warn("[restore] lower body patch failed:", e);
+    }
+  }
+
+  try {
+    return out.toDataURL("image/jpeg", 0.93);
+  } catch {
+    // Canvas tainted (CORS) — return original AI URL unchanged
+    console.warn("[restore] canvas tainted — skipping restoration");
+    return aiResultUrl;
+  }
+}
+
 /* ════════════════════════════════════════════════════════════ */
 export default function TryOn() {
   const [, setLocation] = useLocation();
@@ -229,6 +380,7 @@ export default function TryOn() {
 
   /* ── AI generation state ── */
   const [aiLoading,    setAiLoading]    = useState(false);
+  const [aiEnhancing,  setAiEnhancing]  = useState(false);
   const [aiError,      setAiError]      = useState<string | null>(null);
   const [billingError, setBillingError] = useState(false);
   const [elapsed,      setElapsed]      = useState(0);
@@ -418,9 +570,26 @@ export default function TryOn() {
       if (resp.status === 402) { setBillingError(true); return; }
       if (!resp.ok) throw new Error(data.error || "AI generation failed");
 
-      // Store result separately so garment switching doesn't lose it
-      setAiResultUrl(data.resultUrl);
-      setTryOnUrl(data.resultUrl);
+      // Apply client-side body restoration (face sharpness + hem alignment)
+      setAiLoading(false);
+      setAiEnhancing(true);
+      let finalUrl = data.resultUrl;
+      try {
+        finalUrl = await restoreBodyRegions(
+          data.resultUrl,
+          uploadedPhoto,
+          poseRegions,
+          g.type,
+        );
+      } catch (e) {
+        console.warn("[enhance] body restore failed, using raw result:", e);
+        finalUrl = data.resultUrl;
+      } finally {
+        setAiEnhancing(false);
+      }
+
+      setAiResultUrl(finalUrl);
+      setTryOnUrl(finalUrl);
       setTryOnMode("ai");
     } catch (err: any) {
       if (err.name === "AbortError") {
@@ -430,6 +599,7 @@ export default function TryOn() {
       }
     } finally {
       setAiLoading(false);
+      setAiEnhancing(false);
     }
   }
 
@@ -726,13 +896,15 @@ export default function TryOn() {
                 )}
 
                 {/* Generate button */}
-                <button onClick={runAiTryOn} disabled={aiLoading}
+                <button onClick={runAiTryOn} disabled={aiLoading || aiEnhancing}
                   data-testid="button-generate-ai"
                   className="w-full flex items-center justify-center gap-2 h-11 rounded-2xl font-bold text-sm
                     bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-lg shadow-violet-200
                     active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed">
                   {aiLoading ? (
                     <><Loader2 size={15} className="animate-spin" /> Generating… {elapsed}s</>
+                  ) : aiEnhancing ? (
+                    <><Loader2 size={15} className="animate-spin" /> Enhancing face &amp; hem…</>
                   ) : (
                     <><Wand2 size={15} /> Generate Final Try-On</>
                   )}

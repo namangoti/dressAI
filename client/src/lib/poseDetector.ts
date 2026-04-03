@@ -14,6 +14,9 @@ export interface BodyRegion {
 export interface PoseRegions {
   tops:     BodyRegion | null;
   bottoms:  BodyRegion | null;
+  face:     BodyRegion | null;  // face bounding box in original photo pixels
+  neckY:    number | null;       // Y pixel where face/neck transitions to chest
+  hipCY:    number | null;       // Y pixel center of hips (lower body cut line)
   detected: boolean;
 }
 
@@ -25,7 +28,6 @@ async function getDetector(): Promise<DetectorType> {
   if (detectorPromise) return detectorPromise;
 
   detectorPromise = (async () => {
-    // Dynamic imports keep TF.js out of the initial bundle
     const tf            = await import("@tensorflow/tfjs-core");
     await import("@tensorflow/tfjs-backend-webgl");
     await tf.ready();
@@ -42,14 +44,16 @@ async function getDetector(): Promise<DetectorType> {
 
 /**
  * Analyse an already-loaded HTMLImageElement and return pixel-space body
- * regions for tops and bottoms garment placement.
- * Falls back gracefully — if pose can't be detected, returns detected:false
- * so the caller can use the proportional fallback.
+ * regions for tops/bottoms garment placement plus face/neck/hip for restoration.
  */
 export async function detectPoseRegions(
   img: HTMLImageElement
 ): Promise<PoseRegions> {
-  const empty: PoseRegions = { tops: null, bottoms: null, detected: false };
+  const empty: PoseRegions = {
+    tops: null, bottoms: null,
+    face: null, neckY: null, hipCY: null,
+    detected: false,
+  };
 
   try {
     const detector = await getDetector();
@@ -68,6 +72,11 @@ export async function detectPoseRegions(
     const rKnee     = get("right_knee");
     const lAnkle    = get("left_ankle");
     const rAnkle    = get("right_ankle");
+    const nose      = get("nose");
+    const lEye      = get("left_eye");
+    const rEye      = get("right_eye");
+    const lEar      = get("left_ear");
+    const rEar      = get("right_ear");
 
     const MIN_SCORE = 0.25;
     const ok = (...pts: (PoseDetectionTypes.Keypoint | undefined)[]) =>
@@ -75,7 +84,6 @@ export async function detectPoseRegions(
 
     if (!ok(lShoulder, rShoulder, lHip, rHip)) return empty;
 
-    // ── Tops region ──────────────────────────────────────────────────
     const shoulderCX   = (lShoulder!.x + rShoulder!.x) / 2;
     const shoulderCY   = (lShoulder!.y + rShoulder!.y) / 2;
     const hipCX        = (lHip!.x + rHip!.x) / 2;
@@ -83,6 +91,7 @@ export async function detectPoseRegions(
     const shoulderSpan = Math.abs(rShoulder!.x - lShoulder!.x);
     const torsoH       = hipCY - shoulderCY;
 
+    // ── Tops region ──────────────────────────────────────────────
     const tW: number = shoulderSpan * 1.55;
     const tH: number = torsoH * 1.25;
     const tops: BodyRegion = {
@@ -92,20 +101,16 @@ export async function detectPoseRegions(
       h: tH,
     };
 
-    // ── Bottoms region ────────────────────────────────────────────────
+    // ── Bottoms region ───────────────────────────────────────────
     const hipSpan = Math.abs(rHip!.x - lHip!.x);
-
     let legH: number;
     if (ok(lAnkle, rAnkle)) {
-      const ankleCY = (lAnkle!.y + rAnkle!.y) / 2;
-      legH = ankleCY - hipCY;
+      legH = ((lAnkle!.y + rAnkle!.y) / 2) - hipCY;
     } else if (ok(lKnee, rKnee)) {
-      const kneeCY = (lKnee!.y + rKnee!.y) / 2;
-      legH = (kneeCY - hipCY) * 2.1;
+      legH = (((lKnee!.y + rKnee!.y) / 2) - hipCY) * 2.1;
     } else {
       legH = torsoH * 1.6;
     }
-
     const bW: number = hipSpan * 1.65;
     const bH: number = legH * 1.05;
     const bottoms: BodyRegion = {
@@ -115,7 +120,38 @@ export async function detectPoseRegions(
       h: bH,
     };
 
-    return { tops, bottoms, detected: true };
+    // ── Face region ──────────────────────────────────────────────
+    let face: BodyRegion | null = null;
+    let neckY: number | null    = null;
+
+    if (ok(nose, lEye, rEye)) {
+      const eyeMidY     = (lEye!.y + rEye!.y) / 2;
+      const eyeMidX     = (lEye!.x + rEye!.x) / 2;
+      const eyeSpan     = Math.abs(rEye!.x - lEye!.x);
+      const noseEyeDist = Math.max(1, nose!.y - eyeMidY);
+
+      // Head width: prefer ear-to-ear span, fall back to eye span estimate
+      const headW = ok(lEar, rEar)
+        ? Math.abs(rEar!.x - lEar!.x) * 1.35
+        : eyeSpan * 3.8;
+
+      // Forehead extends ~1.8× the nose-eye distance above the eyes
+      // Chin extends ~2.2× the nose-eye distance below the nose
+      const foreheadY = eyeMidY - noseEyeDist * 1.8;
+      const chinY     = nose!.y   + noseEyeDist * 2.2;
+
+      face = {
+        x: eyeMidX - headW / 2,
+        y: foreheadY,
+        w: headW,
+        h: chinY - foreheadY,
+      };
+
+      // neckY: midpoint between chin and shoulder line
+      neckY = (chinY + shoulderCY) / 2;
+    }
+
+    return { tops, bottoms, face, neckY, hipCY, detected: true };
   } catch (err) {
     console.warn("[pose] detection failed:", err instanceof Error ? err.message : String(err));
     return empty;
