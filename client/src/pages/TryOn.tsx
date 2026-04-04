@@ -183,12 +183,21 @@ async function composite(
 
   // ── Shoulder-angle tilt ───────────────────────────────────
   // Compute the slope of the shoulder line and tilt the garment to match.
-  // Capped at ±15° to avoid wild tilts on bad detections.
+  // IMPORTANT: Sort by image-x first. Pose models use anatomical left/right,
+  // which in a front-facing photo means "right shoulder" appears at a lower
+  // x than "left shoulder". Without sorting, dx can be negative for a
+  // perfectly level person, giving atan2 ≈ ±π and an erroneous ±15° tilt.
+  // Sorting ensures dx is always positive (image-left → image-right), so
+  // atan2 returns a value in [-π/2, +π/2] and level shoulders give ~0°.
   let tiltAngle = 0;
   if (poseRegions?.shoulderL && poseRegions?.shoulderR) {
-    const dx = poseRegions.shoulderR.x - poseRegions.shoulderL.x;
-    const dy = poseRegions.shoulderR.y - poseRegions.shoulderL.y;
-    const raw = Math.atan2(dy, dx);
+    const sLeft  = poseRegions.shoulderL.x <= poseRegions.shoulderR.x
+      ? poseRegions.shoulderL : poseRegions.shoulderR;
+    const sRight = poseRegions.shoulderL.x <= poseRegions.shoulderR.x
+      ? poseRegions.shoulderR : poseRegions.shoulderL;
+    const dx = sRight.x - sLeft.x;   // always positive
+    const dy = sRight.y - sLeft.y;   // small ±value for realistic shoulder slope
+    const raw = Math.atan2(dy, dx);  // well-bounded now: [-π/2, +π/2]
     const MAX_TILT = 15 * Math.PI / 180;
     tiltAngle = Math.max(-MAX_TILT, Math.min(MAX_TILT, raw));
   }
@@ -232,24 +241,40 @@ async function composite(
   ctx.restore();
 
   // ── Pass 2: multiply blend — photo lighting bleeds through ─
-  // Re-draw the original photo clipped to the garment region with
-  // multiply compositing so the scene's shadows and highlights tint
-  // the fabric, reducing the flat-sticker appearance.
-  ctx.save();
-  ctx.globalCompositeOperation = "multiply";
-  ctx.globalAlpha = 0.22;
-  ctx.translate(cx, cy);
-  ctx.rotate(tiltAngle);
-  if (waistInset > 0) {
-    setTrapClip(ctx);
-  } else {
-    ctx.beginPath();
-    ctx.rect(-garW / 2, -garH / 2, garW, garH);
-    ctx.clip();
+  // Build an offscreen canvas where the person photo is masked by the
+  // garment's own alpha channel. This ensures only pixels that are
+  // actually covered by the garment (not transparent background areas)
+  // receive the lighting tint, avoiding erroneous darkening of the
+  // person photo that shows through transparent garment edges.
+  try {
+    const lit = document.createElement("canvas");
+    lit.width  = garmentCanvas.width;
+    lit.height = garmentCanvas.height;
+    const lCtx = lit.getContext("2d")!;
+
+    // Draw person photo cropped to the garment area and scaled to garment canvas size
+    lCtx.drawImage(
+      person,
+      garX, garY, garW, garH,         // source region (garment area in photo)
+      0, 0, garmentCanvas.width, garmentCanvas.height,  // dest: full lit canvas
+    );
+
+    // Mask to garment alpha: keep only pixels where garment is opaque
+    lCtx.globalCompositeOperation = "destination-in";
+    lCtx.drawImage(garmentCanvas, 0, 0);
+    lCtx.globalCompositeOperation = "source-over";
+
+    // Composite the masked lit canvas onto the main output with multiply
+    ctx.save();
+    ctx.globalCompositeOperation = "multiply";
+    ctx.globalAlpha = 0.28;
+    ctx.translate(cx, cy);
+    ctx.rotate(tiltAngle);
+    ctx.drawImage(lit, -garW / 2, -garH / 2, garW, garH);
+    ctx.restore();
+  } catch {
+    // Silently skip lighting pass if offscreen canvas fails (e.g., tainted)
   }
-  ctx.translate(-cx, -cy);
-  ctx.drawImage(person, 0, 0, pw, ph);
-  ctx.restore();
 
   return out.toDataURL("image/jpeg", 0.93);
 }
