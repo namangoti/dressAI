@@ -538,6 +538,12 @@ export default function TryOn() {
     if (!previewOpen) { setZoom(1); setPan({ x: 0, y: 0 }); }
   }, [previewOpen]);
 
+  /* Clear stale AI result when garment selection changes */
+  useEffect(() => {
+    setAiResultUrl(null);
+    setTryOnMode("canvas");
+  }, [selectedId]);
+
   /* Elapsed-time ticker while AI is generating */
   useEffect(() => {
     if (aiLoading) {
