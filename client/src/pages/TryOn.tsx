@@ -264,12 +264,15 @@ async function composite(
     lCtx.drawImage(garmentCanvas, 0, 0);
     lCtx.globalCompositeOperation = "source-over";
 
-    // Composite the masked lit canvas onto the main output with multiply
+    // Composite the masked lit canvas onto the main output with multiply.
+    // Apply the same trapezoid clip as pass 1 so the lighting tint stays
+    // within the waist-tapered silhouette and doesn't bleed into corners.
     ctx.save();
     ctx.globalCompositeOperation = "multiply";
     ctx.globalAlpha = 0.28;
     ctx.translate(cx, cy);
     ctx.rotate(tiltAngle);
+    if (waistInset > 0) setTrapClip(ctx);
     ctx.drawImage(lit, -garW / 2, -garH / 2, garW, garH);
     ctx.restore();
   } catch {
