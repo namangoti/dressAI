@@ -154,49 +154,102 @@ async function composite(
 
   ctx.drawImage(person, 0, 0, pw, ph);
 
-  if (garmentCanvas.width > 0 && garmentCanvas.height > 0) {
-    let garX: number, garY: number, garW: number, garH: number;
-
-    // ── Pose-based placement ─────────────────────────────────
-    const region = poseRegions?.detected
-      ? (type === "tops" ? poseRegions.tops : poseRegions.bottoms)
-      : null;
-
-    if (region) {
-      // Maintain the garment's aspect ratio inside the detected region
-      const regionAR = region.w / region.h;
-      const garAR    = garmentCanvas.width / garmentCanvas.height;
-
-      if (garAR > regionAR) {
-        // garment is wider — fit by width
-        garW = region.w;
-        garH = garW / garAR;
-      } else {
-        // garment is taller — fit by height
-        garH = region.h;
-        garW = garH * garAR;
-      }
-      garX = region.x + (region.w - garW) / 2;
-      garY = region.y + (region.h - garH) / 2;
-    } else {
-      // ── Proportional fallback (no pose detected) ─────────────
-      const yStart = type === "tops"    ? ph * 0.14 : ph * 0.46;
-      const yEnd   = type === "bottoms" ? ph * 0.98 : ph * 0.62;
-      garH = yEnd - yStart;
-      garW = garH * (garmentCanvas.width / garmentCanvas.height);
-      garX = (pw - garW) / 2;
-      garY = yStart;
-    }
-
-    // Soft shadow beneath garment for depth
-    ctx.save();
-    ctx.shadowColor  = "rgba(0,0,0,0.18)";
-    ctx.shadowBlur   = 12;
-    ctx.shadowOffsetY = 4;
-    ctx.globalAlpha  = 0.93;
-    ctx.drawImage(garmentCanvas, garX, garY, garW, garH);
-    ctx.restore();
+  if (garmentCanvas.width <= 0 || garmentCanvas.height <= 0) {
+    return out.toDataURL("image/jpeg", 0.93);
   }
+
+  let garX: number, garY: number, garW: number, garH: number;
+
+  // ── Pose-based placement ──────────────────────────────────
+  const region = poseRegions?.detected
+    ? (type === "tops" ? poseRegions.tops : poseRegions.bottoms)
+    : null;
+
+  if (region) {
+    const regionAR = region.w / region.h;
+    const garAR    = garmentCanvas.width / garmentCanvas.height;
+    if (garAR > regionAR) { garW = region.w; garH = garW / garAR; }
+    else                   { garH = region.h; garW = garH * garAR; }
+    garX = region.x + (region.w - garW) / 2;
+    garY = region.y + (region.h - garH) / 2;
+  } else {
+    const yStart = type === "tops"    ? ph * 0.14 : ph * 0.46;
+    const yEnd   = type === "bottoms" ? ph * 0.98 : ph * 0.62;
+    garH = yEnd - yStart;
+    garW = garH * (garmentCanvas.width / garmentCanvas.height);
+    garX = (pw - garW) / 2;
+    garY = yStart;
+  }
+
+  // ── Shoulder-angle tilt ───────────────────────────────────
+  // Compute the slope of the shoulder line and tilt the garment to match.
+  // Capped at ±15° to avoid wild tilts on bad detections.
+  let tiltAngle = 0;
+  if (poseRegions?.shoulderL && poseRegions?.shoulderR) {
+    const dx = poseRegions.shoulderR.x - poseRegions.shoulderL.x;
+    const dy = poseRegions.shoulderR.y - poseRegions.shoulderL.y;
+    const raw = Math.atan2(dy, dx);
+    const MAX_TILT = 15 * Math.PI / 180;
+    tiltAngle = Math.max(-MAX_TILT, Math.min(MAX_TILT, raw));
+  }
+
+  // ── Waist taper (tops only) ───────────────────────────────
+  // If the hips are narrower than the shoulders, clip the garment into a
+  // trapezoid so the bottom edge tapers inward like a real t-shirt silhouette.
+  let waistInset = 0;
+  if (type === "tops" && poseRegions?.shoulderSpanPx && poseRegions?.hipSpanPx) {
+    const taperRatio = Math.min(1, poseRegions.hipSpanPx / poseRegions.shoulderSpanPx);
+    if (taperRatio < 0.95) {
+      // Scale the inset conservatively — max ~30% of the half-width
+      waistInset = (garW / 2) * (1 - taperRatio) * 0.40;
+    }
+  }
+
+  // ── Helper: define trapezoid clip path (in rotated local coords) ─
+  const setTrapClip = (c: CanvasRenderingContext2D) => {
+    c.beginPath();
+    c.moveTo(-garW / 2,               -garH / 2);  // top-left
+    c.lineTo( garW / 2,               -garH / 2);  // top-right
+    c.lineTo( garW / 2 - waistInset,   garH / 2);  // bottom-right (tapered)
+    c.lineTo(-garW / 2 + waistInset,   garH / 2);  // bottom-left  (tapered)
+    c.closePath();
+    c.clip();
+  };
+
+  const cx = garX + garW / 2;
+  const cy = garY + garH / 2;
+
+  // ── Pass 1: garment with shadow ───────────────────────────
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(tiltAngle);
+  if (waistInset > 0) setTrapClip(ctx);
+  ctx.shadowColor   = "rgba(0,0,0,0.20)";
+  ctx.shadowBlur    = 14;
+  ctx.shadowOffsetY = 5;
+  ctx.globalAlpha   = 0.93;
+  ctx.drawImage(garmentCanvas, -garW / 2, -garH / 2, garW, garH);
+  ctx.restore();
+
+  // ── Pass 2: multiply blend — photo lighting bleeds through ─
+  // Re-draw the original photo clipped to the garment region with
+  // multiply compositing so the scene's shadows and highlights tint
+  // the fabric, reducing the flat-sticker appearance.
+  ctx.save();
+  ctx.globalCompositeOperation = "multiply";
+  ctx.globalAlpha = 0.22;
+  ctx.translate(cx, cy);
+  ctx.rotate(tiltAngle);
+  if (waistInset > 0) {
+    setTrapClip(ctx);
+  } else {
+    ctx.beginPath();
+    ctx.rect(-garW / 2, -garH / 2, garW, garH);
+    ctx.clip();
+  }
+  ctx.translate(-cx, -cy);
+  ctx.drawImage(person, 0, 0, pw, ph);
+  ctx.restore();
 
   return out.toDataURL("image/jpeg", 0.93);
 }
@@ -981,12 +1034,12 @@ export default function TryOn() {
                   ) : aiEnhancing ? (
                     <><Loader2 size={15} className="animate-spin" /> Enhancing face &amp; hem…</>
                   ) : (
-                    <><Wand2 size={15} /> Generate Final Try-On</>
+                    <><Wand2 size={15} /> Generate Photorealistic Try-On</>
                   )}
                 </button>
-                {!aiLoading && (
-                  <p className="text-center text-[10px] text-muted-foreground">
-                    Photorealistic result · usually 30–90 sec
+                {!aiLoading && !aiEnhancing && (
+                  <p className="text-center text-[10px] text-muted-foreground leading-snug">
+                    AI cloth warping · lighting match · body fit · usually 30–90 sec
                   </p>
                 )}
 

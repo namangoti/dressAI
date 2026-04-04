@@ -12,12 +12,17 @@ export interface BodyRegion {
 }
 
 export interface PoseRegions {
-  tops:     BodyRegion | null;
-  bottoms:  BodyRegion | null;
-  face:     BodyRegion | null;  // face bounding box in original photo pixels
-  neckY:    number | null;       // Y pixel where face/neck transitions to chest
-  hipCY:    number | null;       // Y pixel center of hips (lower body cut line)
-  detected: boolean;
+  tops:           BodyRegion | null;
+  bottoms:        BodyRegion | null;
+  face:           BodyRegion | null;   // face bounding box in original photo pixels
+  neckY:          number | null;        // Y pixel where face/neck transitions to chest
+  hipCY:          number | null;        // Y pixel center of hips (lower body cut line)
+  detected:       boolean;
+  // Raw keypoint coordinates used by the canvas compositor
+  shoulderL:      { x: number; y: number } | null;  // left  shoulder keypoint
+  shoulderR:      { x: number; y: number } | null;  // right shoulder keypoint
+  shoulderSpanPx: number | null;  // pixel distance between shoulder keypoints
+  hipSpanPx:      number | null;  // pixel distance between hip keypoints
 }
 
 type DetectorType = PoseDetectionTypes.PoseDetector;
@@ -53,6 +58,8 @@ export async function detectPoseRegions(
     tops: null, bottoms: null,
     face: null, neckY: null, hipCY: null,
     detected: false,
+    shoulderL: null, shoulderR: null,
+    shoulderSpanPx: null, hipSpanPx: null,
   };
 
   try {
@@ -151,7 +158,13 @@ export async function detectPoseRegions(
       neckY = (chinY + shoulderCY) / 2;
     }
 
-    return { tops, bottoms, face, neckY, hipCY, detected: true };
+    return {
+      tops, bottoms, face, neckY, hipCY, detected: true,
+      shoulderL:      { x: lShoulder!.x, y: lShoulder!.y },
+      shoulderR:      { x: rShoulder!.x, y: rShoulder!.y },
+      shoulderSpanPx: shoulderSpan,
+      hipSpanPx:      Math.abs(rHip!.x - lHip!.x),
+    };
   } catch (err) {
     console.warn("[pose] detection failed:", err instanceof Error ? err.message : String(err));
     return empty;
