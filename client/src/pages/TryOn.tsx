@@ -1152,7 +1152,14 @@ export default function TryOn() {
               {/* Tops / Bottoms filter toggle */}
               <div className="flex gap-1.5 mb-2.5">
                 {(["tops", "bottoms"] as GarmentType[]).map(cat => (
-                  <button key={cat} onClick={() => setGarmentFilter(cat)}
+                  <button key={cat} onClick={() => {
+                    setGarmentFilter(cat);
+                    const current = GARMENTS.find(g => g.id === selectedId);
+                    if (current?.type !== cat) {
+                      const first = GARMENTS.find(g => g.type === cat);
+                      if (first) setSelectedId(first.id);
+                    }
+                  }}
                     data-testid={`button-filter-${cat}`}
                     className={`flex-1 h-8 rounded-full text-xs font-semibold border-2 transition-all
                       ${garmentFilter === cat
