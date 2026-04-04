@@ -523,7 +523,8 @@ export default function TryOn() {
   const [billingError, setBillingError] = useState(false);
   const [elapsed,      setElapsed]      = useState(0);
   const [aiResultUrl,  setAiResultUrl]  = useState<string | null>(null);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timerRef      = useRef<ReturnType<typeof setInterval> | null>(null);
+  const selectedIdRef = useRef(selectedId);
 
   /* ── Fullscreen preview + zoom state ── */
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -540,6 +541,7 @@ export default function TryOn() {
 
   /* Clear stale AI result when garment selection changes */
   useEffect(() => {
+    selectedIdRef.current = selectedId;
     setAiResultUrl(null);
     setTryOnMode("canvas");
   }, [selectedId]);
@@ -775,6 +777,8 @@ export default function TryOn() {
         setAiEnhancing(false);
       }
 
+      // Guard: discard result if the user switched garments while AI was running
+      if (selectedIdRef.current !== g.id) return;
       setAiResultUrl(finalUrl);
       setTryOnUrl(finalUrl);
       setTryOnMode("ai");
