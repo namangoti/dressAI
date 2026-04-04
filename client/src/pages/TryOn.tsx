@@ -499,6 +499,7 @@ export default function TryOn() {
   const [height,       setHeight]       = useState(170);
   const [weight,       setWeight]       = useState(70);
   const [size,         setSize]         = useState<Size>("M");
+  const [waistSize,    setWaistSize]    = useState(32);
   const [skinTone,     setSkinTone]     = useState("medium");
   const [uploadedPhoto, setUploadedPhoto] = useState<string | null>(null);
   const [photoError,    setPhotoError]    = useState<string | null>(null);
@@ -749,7 +750,7 @@ export default function TryOn() {
         body: JSON.stringify({
           personImage:  compressed,
           garmentImage: garmentBase64,
-          garmentName:  `${g.name}, size ${size}, for a ${height} cm ${weight} kg ${gender}`,
+          garmentName:  `${g.name}, size ${size}${g.type === "bottoms" ? `, waist ${waistSize}in` : ""}, for a ${height} cm ${weight} kg ${gender}`,
           ...(garmentMaskImage ? { garmentMaskImage } : {}),
         }),
       }).finally(() => clearTimeout(timer));
@@ -925,6 +926,23 @@ export default function TryOn() {
                   <span>40 kg</span><span>95 kg</span><span>150 kg</span>
                 </div>
               </section>
+
+              {/* Waist Size – bottoms only */}
+              {garment.type === "bottoms" && (
+                <section>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1">
+                      <Ruler size={12} /> Waist Size
+                    </p>
+                    <span className="text-sm font-bold text-primary">{waistSize} in</span>
+                  </div>
+                  <input type="range" min={24} max={48} value={waistSize} onChange={e => setWaistSize(+e.target.value)}
+                    className="w-full accent-primary" data-testid="slider-waist-size" />
+                  <div className="flex justify-between text-[10px] text-muted-foreground mt-0.5">
+                    <span>24 in</span><span>36 in</span><span>48 in</span>
+                  </div>
+                </section>
+              )}
 
               {/* Size */}
               <section>
