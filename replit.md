@@ -14,7 +14,7 @@ A mobile-first virtual try-on eCommerce app (Myntra-style) where users upload a 
 - **Pose-based body alignment**: TensorFlow.js MoveNet detects 17 body keypoints; clothing is dynamically positioned and scaled to match detected shoulders, torso, hips, and ankles — not fixed coordinates
 - **AI photorealistic generation**: optional `Generate AI Image` button calls Replicate API (`cuuupid/idm-vton`) for a realistic result (requires Replicate billing credits)
 - **HEIC/unsupported format detection**: clear error messages for iPhone HEIC files
-- **Garment catalogue**: 6 T-shirts (extendable to bottoms/pants)
+- **Garment catalogue**: 10 items — 6 tops (T-shirts) + 4 bottoms (Classic Blue Jeans, Black Slim Jeans, Blue Denim Jeans, Khaki Chinos); Tops/Bottoms filter toggle in the picker UI
 
 ## File Structure
 ```

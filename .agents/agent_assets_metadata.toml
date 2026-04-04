@@ -96,6 +96,24 @@ uri = "file://client/src/assets/images/kids-dress.png"
 type = "image"
 title = "Kids dress flat lay"
 
+[[generated]]
+id = "oQE8_e5iEXyu9LTm5ypqd"
+uri = "file://client/src/assets/images/jeans-blue-denim.png"
+type = "image"
+title = "blue denim jeans product"
+
+[[generated]]
+id = "z_8Fpv--O6I7yxfIBCcWF"
+uri = "file://client/src/assets/images/jeans-black-slim.png"
+type = "image"
+title = "black slim jeans product"
+
+[[generated]]
+id = "LhHpZ8OXPLknyxveOx_d2"
+uri = "file://client/src/assets/images/trousers-khaki-chino.png"
+type = "image"
+title = "khaki chino trousers product"
+
 [[outputs]]
 id = "DH2-EdXjdIGnlmt_Nlfkr"
 uri = "file://client/src/assets/images/garment-1.jpg"

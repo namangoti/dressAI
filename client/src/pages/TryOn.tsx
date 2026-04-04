@@ -16,28 +16,44 @@ import garment3 from "@/assets/images/tshirt-grey.png";
 import garment4 from "@/assets/images/tshirt-red.png";
 import garment5 from "@/assets/images/tshirt-blue.png";
 import garment6 from "@/assets/images/tshirt-graphic.png";
+import garment7 from "@/assets/images/mens-jeans.png";
+import garment8 from "@/assets/images/jeans-black-slim.png";
+import garment9 from "@/assets/images/jeans-blue-denim.png";
+import garment10 from "@/assets/images/trousers-khaki-chino.png";
 
 /* ── Outfit catalogue ─────────────────────────────────────── */
 type GarmentType = "tops" | "bottoms";
 const GARMENTS = [
-  { id: 1, image: garment1, name: "Black T-Shirt",   price: "₹599", tag: "Bestseller", type: "tops" as GarmentType,
+  { id: 1,  image: garment1,  name: "Black T-Shirt",     price: "₹599",  tag: "Bestseller", type: "tops" as GarmentType,
     fallbackM: "https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=600&q=80",
     fallbackF: "https://images.unsplash.com/photo-1588117305388-c2631a279f82?w=600&q=80" },
-  { id: 2, image: garment2, name: "White T-Shirt",   price: "₹499", tag: "New",        type: "tops" as GarmentType,
+  { id: 2,  image: garment2,  name: "White T-Shirt",     price: "₹499",  tag: "New",        type: "tops" as GarmentType,
     fallbackM: "https://images.unsplash.com/photo-1516826957135-700dedea698c?w=600&q=80",
     fallbackF: "https://images.unsplash.com/photo-1485231183945-fffde7ae021e?w=600&q=80" },
-  { id: 3, image: garment3, name: "Grey T-Shirt",    price: "₹549", tag: "",           type: "tops" as GarmentType,
+  { id: 3,  image: garment3,  name: "Grey T-Shirt",      price: "₹549",  tag: "",           type: "tops" as GarmentType,
     fallbackM: "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=600&q=80",
     fallbackF: "https://images.unsplash.com/photo-1509631179647-0177331693ae?w=600&q=80" },
-  { id: 4, image: garment4, name: "Red T-Shirt",     price: "₹649", tag: "Hot",        type: "tops" as GarmentType,
+  { id: 4,  image: garment4,  name: "Red T-Shirt",       price: "₹649",  tag: "Hot",        type: "tops" as GarmentType,
     fallbackM: "https://images.unsplash.com/photo-1503341504253-dff4815485f1?w=600&q=80",
     fallbackF: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=600&q=80" },
-  { id: 5, image: garment5, name: "Blue T-Shirt",    price: "₹599", tag: "",           type: "tops" as GarmentType,
+  { id: 5,  image: garment5,  name: "Blue T-Shirt",      price: "₹599",  tag: "",           type: "tops" as GarmentType,
     fallbackM: "https://images.unsplash.com/photo-1473621038790-b778b4de3b84?w=600&q=80",
     fallbackF: "https://images.unsplash.com/photo-1495385794356-15371f348c31?w=600&q=80" },
-  { id: 6, image: garment6, name: "Graphic T-Shirt", price: "₹799", tag: "Trending",   type: "tops" as GarmentType,
+  { id: 6,  image: garment6,  name: "Graphic T-Shirt",   price: "₹799",  tag: "Trending",   type: "tops" as GarmentType,
     fallbackM: "https://images.unsplash.com/photo-1562157873-818bc0726f68?w=600&q=80",
     fallbackF: "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=600&q=80" },
+  { id: 7,  image: garment7,  name: "Classic Blue Jeans", price: "₹1,299", tag: "Bestseller", type: "bottoms" as GarmentType,
+    fallbackM: "https://images.unsplash.com/photo-1542272604-787c3835535d?w=600&q=80",
+    fallbackF: "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=600&q=80" },
+  { id: 8,  image: garment8,  name: "Black Slim Jeans",  price: "₹1,199", tag: "New",        type: "bottoms" as GarmentType,
+    fallbackM: "https://images.unsplash.com/photo-1473966968600-fa801b869a1a?w=600&q=80",
+    fallbackF: "https://images.unsplash.com/photo-1582418702059-97ebafb35d09?w=600&q=80" },
+  { id: 9,  image: garment9,  name: "Blue Denim Jeans",  price: "₹1,099", tag: "",           type: "bottoms" as GarmentType,
+    fallbackM: "https://images.unsplash.com/photo-1555689502-c4b22d76c56f?w=600&q=80",
+    fallbackF: "https://images.unsplash.com/photo-1604176354204-9268737828e4?w=600&q=80" },
+  { id: 10, image: garment10, name: "Khaki Chinos",      price: "₹999",  tag: "Hot",        type: "bottoms" as GarmentType,
+    fallbackM: "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=600&q=80",
+    fallbackF: "https://images.unsplash.com/photo-1506629082955-511b1aa562c8?w=600&q=80" },
 ];
 
 const SIZES = ["XS", "S", "M", "L", "XL", "XXL"] as const;
@@ -488,6 +504,7 @@ export default function TryOn() {
   const [photoError,    setPhotoError]    = useState<string | null>(null);
 
   /* ── outfit state ── */
+  const [garmentFilter, setGarmentFilter] = useState<GarmentType>("tops");
   const [selectedId,  setSelectedId]  = useState(1);
   const [saved,       setSaved]       = useState(false);
   const [tryOnUrl,    setTryOnUrl]    = useState<string | null>(null);
@@ -1125,13 +1142,31 @@ export default function TryOn() {
 
             {/* Outfit picker */}
             <div className="shrink-0 mt-2 px-4">
-              <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center justify-between mb-2">
                 <h3 className="text-sm font-semibold">Pick an Outfit</h3>
-                <span className="text-xs text-muted-foreground">{GARMENTS.length} items</span>
+                <span data-testid="text-garment-count" className="text-xs text-muted-foreground">
+                  {GARMENTS.filter(g => g.type === garmentFilter).length} items
+                </span>
               </div>
+
+              {/* Tops / Bottoms filter toggle */}
+              <div className="flex gap-1.5 mb-2.5">
+                {(["tops", "bottoms"] as GarmentType[]).map(cat => (
+                  <button key={cat} onClick={() => setGarmentFilter(cat)}
+                    data-testid={`button-filter-${cat}`}
+                    className={`flex-1 h-8 rounded-full text-xs font-semibold border-2 transition-all
+                      ${garmentFilter === cat
+                        ? "bg-primary border-primary text-white shadow-sm"
+                        : "bg-background border-border/50 text-muted-foreground"}`}>
+                    {cat === "tops" ? "Tops" : "Bottoms"}
+                  </button>
+                ))}
+              </div>
+
               <div className="flex gap-2.5 overflow-x-auto hide-scrollbar -mx-4 px-4 pb-2">
-                {GARMENTS.map(g => (
-                  <div key={g.id} onClick={() => setSelectedId(g.id)}
+                {GARMENTS.filter(g => g.type === garmentFilter).map(g => (
+                  <div key={g.id}
+                    onClick={() => { setSelectedId(g.id); setGarmentFilter(g.type); }}
                     data-testid={`card-garment-${g.id}`}
                     className={`relative flex-shrink-0 w-[68px] rounded-2xl overflow-hidden cursor-pointer border-2 transition-all active:scale-95
                       ${selectedId === g.id ? "border-primary shadow-md shadow-primary/25 scale-105" : "border-border/40"}`}
