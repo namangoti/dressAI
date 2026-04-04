@@ -23,6 +23,10 @@ export interface PoseRegions {
   shoulderR:      { x: number; y: number } | null;  // right shoulder keypoint
   shoulderSpanPx: number | null;  // pixel distance between shoulder keypoints
   hipSpanPx:      number | null;  // pixel distance between hip keypoints
+  // Hip/ankle keypoints for bottoms tilt + ankle taper
+  hipL:           { x: number; y: number } | null;  // left  hip keypoint
+  hipR:           { x: number; y: number } | null;  // right hip keypoint
+  ankleSpanPx:    number | null;  // pixel distance between ankle keypoints (estimated when not detected)
 }
 
 type DetectorType = PoseDetectionTypes.PoseDetector;
@@ -60,6 +64,7 @@ export async function detectPoseRegions(
     detected: false,
     shoulderL: null, shoulderR: null,
     shoulderSpanPx: null, hipSpanPx: null,
+    hipL: null, hipR: null, ankleSpanPx: null,
   };
 
   try {
@@ -158,12 +163,30 @@ export async function detectPoseRegions(
       neckY = (chinY + shoulderCY) / 2;
     }
 
+    // ── Ankle span ───────────────────────────────────────────
+    // Used by the compositor for the ankle-taper on trousers/jeans.
+    // Falls back to estimated values when ankle keypoints are unavailable.
+    // Note: hipSpan is already declared above for the bottoms region.
+    let ankleSpanPx: number;
+    if (ok(lAnkle, rAnkle)) {
+      ankleSpanPx = Math.abs(rAnkle!.x - lAnkle!.x);
+    } else if (ok(lKnee, rKnee)) {
+      // Ankles are typically ~85% of knee span
+      ankleSpanPx = Math.abs(rKnee!.x - lKnee!.x) * 0.85;
+    } else {
+      // Rough anatomical estimate: ankles ≈ 65% of hip width
+      ankleSpanPx = hipSpan * 0.65;
+    }
+
     return {
       tops, bottoms, face, neckY, hipCY, detected: true,
       shoulderL:      { x: lShoulder!.x, y: lShoulder!.y },
       shoulderR:      { x: rShoulder!.x, y: rShoulder!.y },
       shoulderSpanPx: shoulderSpan,
-      hipSpanPx:      Math.abs(rHip!.x - lHip!.x),
+      hipSpanPx:      hipSpan,
+      hipL:           { x: lHip!.x, y: lHip!.y },
+      hipR:           { x: rHip!.x, y: rHip!.y },
+      ankleSpanPx,
     };
   } catch (err) {
     console.warn("[pose] detection failed:", err instanceof Error ? err.message : String(err));

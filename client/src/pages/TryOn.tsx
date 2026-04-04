@@ -181,46 +181,76 @@ async function composite(
     garY = yStart;
   }
 
-  // ── Shoulder-angle tilt ───────────────────────────────────
-  // Compute the slope of the shoulder line and tilt the garment to match.
-  // IMPORTANT: Sort by image-x first. Pose models use anatomical left/right,
-  // which in a front-facing photo means "right shoulder" appears at a lower
-  // x than "left shoulder". Without sorting, dx can be negative for a
-  // perfectly level person, giving atan2 ≈ ±π and an erroneous ±15° tilt.
-  // Sorting ensures dx is always positive (image-left → image-right), so
-  // atan2 returns a value in [-π/2, +π/2] and level shoulders give ~0°.
+  // ── Garment-angle tilt ────────────────────────────────────
+  // Tops tilt with the shoulder slope; bottoms tilt with the hip slope.
+  // IMPORTANT: Sort keypoints by image-x before computing atan2. Pose models
+  // use anatomical left/right, which in a front-facing photo means the
+  // "right" keypoint appears at lower x than the "left" keypoint. Without
+  // sorting, dx is negative for a level person, giving atan2 ≈ ±π and a
+  // persistent ±15° erroneous tilt. Sorting guarantees dx > 0 so atan2
+  // stays in [-π/2, +π/2] and level posture gives ~0°.
+  const MAX_TILT = 15 * Math.PI / 180;
   let tiltAngle = 0;
-  if (poseRegions?.shoulderL && poseRegions?.shoulderR) {
+
+  if (type === "tops" && poseRegions?.shoulderL && poseRegions?.shoulderR) {
     const sLeft  = poseRegions.shoulderL.x <= poseRegions.shoulderR.x
       ? poseRegions.shoulderL : poseRegions.shoulderR;
     const sRight = poseRegions.shoulderL.x <= poseRegions.shoulderR.x
       ? poseRegions.shoulderR : poseRegions.shoulderL;
-    const dx = sRight.x - sLeft.x;   // always positive
-    const dy = sRight.y - sLeft.y;   // small ±value for realistic shoulder slope
-    const raw = Math.atan2(dy, dx);  // well-bounded now: [-π/2, +π/2]
-    const MAX_TILT = 15 * Math.PI / 180;
+    const raw = Math.atan2(sRight.y - sLeft.y, sRight.x - sLeft.x);
+    tiltAngle = Math.max(-MAX_TILT, Math.min(MAX_TILT, raw));
+
+  } else if (type === "bottoms" && poseRegions?.hipL && poseRegions?.hipR) {
+    // Same x-sorted approach for hips — gives the true hip-line slope
+    const hLeft  = poseRegions.hipL.x <= poseRegions.hipR.x
+      ? poseRegions.hipL : poseRegions.hipR;
+    const hRight = poseRegions.hipL.x <= poseRegions.hipR.x
+      ? poseRegions.hipR : poseRegions.hipL;
+    const raw = Math.atan2(hRight.y - hLeft.y, hRight.x - hLeft.x);
     tiltAngle = Math.max(-MAX_TILT, Math.min(MAX_TILT, raw));
   }
 
   // ── Waist taper (tops only) ───────────────────────────────
   // If the hips are narrower than the shoulders, clip the garment into a
   // trapezoid so the bottom edge tapers inward like a real t-shirt silhouette.
-  let waistInset = 0;
+  let bottomInset = 0;
   if (type === "tops" && poseRegions?.shoulderSpanPx && poseRegions?.hipSpanPx) {
     const taperRatio = Math.min(1, poseRegions.hipSpanPx / poseRegions.shoulderSpanPx);
     if (taperRatio < 0.95) {
-      // Scale the inset conservatively — max ~30% of the half-width
-      waistInset = (garW / 2) * (1 - taperRatio) * 0.40;
+      bottomInset = (garW / 2) * (1 - taperRatio) * 0.40;
     }
   }
 
-  // ── Helper: define trapezoid clip path (in rotated local coords) ─
+  // ── Ankle taper (bottoms only) ────────────────────────────
+  // Jeans/trousers narrow from hip to ankle. Clip the garment into a
+  // top-wide, bottom-narrow trapezoid using the ankleSpanPx / hipSpanPx
+  // ratio. Shorts are excluded: if the garment height is less than 50% of
+  // the detected leg region height, it doesn't reach the ankle so no taper.
+  let topInset = 0;
+  if (type === "bottoms" && poseRegions?.hipSpanPx && poseRegions?.ankleSpanPx) {
+    const legRegionH = poseRegions.bottoms?.h ?? 0;
+    const isTallEnough = legRegionH <= 0 || garH >= legRegionH * 0.50;
+    if (isTallEnough) {
+      const taperRatio = Math.min(1, poseRegions.ankleSpanPx / poseRegions.hipSpanPx);
+      if (taperRatio < 0.95) {
+        // Conservative factor: max ~40% of half-width at full taper
+        topInset = (garW / 2) * (1 - taperRatio) * 0.40;
+      }
+    }
+  }
+
+  // ── Helper: trapezoid clip path (in rotated local coords) ─
+  // bottomInset > 0 → tops taper (narrow bottom / waist)
+  // topInset    > 0 → bottoms taper (narrow bottom / ankle, wide top / hip)
+  // Note: for bottoms the trapezoid is still "top wide, bottom narrow" —
+  // the "top" is the hip edge and the "bottom" is the ankle edge of the garment.
+  const activeInset = type === "tops" ? bottomInset : topInset;
   const setTrapClip = (c: CanvasRenderingContext2D) => {
     c.beginPath();
-    c.moveTo(-garW / 2,               -garH / 2);  // top-left
-    c.lineTo( garW / 2,               -garH / 2);  // top-right
-    c.lineTo( garW / 2 - waistInset,   garH / 2);  // bottom-right (tapered)
-    c.lineTo(-garW / 2 + waistInset,   garH / 2);  // bottom-left  (tapered)
+    c.moveTo(-garW / 2,                -garH / 2);  // top-left  (full width)
+    c.lineTo( garW / 2,                -garH / 2);  // top-right (full width)
+    c.lineTo( garW / 2 - activeInset,   garH / 2);  // bottom-right (tapered)
+    c.lineTo(-garW / 2 + activeInset,   garH / 2);  // bottom-left  (tapered)
     c.closePath();
     c.clip();
   };
@@ -232,7 +262,7 @@ async function composite(
   ctx.save();
   ctx.translate(cx, cy);
   ctx.rotate(tiltAngle);
-  if (waistInset > 0) setTrapClip(ctx);
+  if (activeInset > 0) setTrapClip(ctx);
   ctx.shadowColor   = "rgba(0,0,0,0.20)";
   ctx.shadowBlur    = 14;
   ctx.shadowOffsetY = 5;
@@ -266,13 +296,13 @@ async function composite(
 
     // Composite the masked lit canvas onto the main output with multiply.
     // Apply the same trapezoid clip as pass 1 so the lighting tint stays
-    // within the waist-tapered silhouette and doesn't bleed into corners.
+    // within the tapered silhouette and doesn't bleed into corners.
     ctx.save();
     ctx.globalCompositeOperation = "multiply";
     ctx.globalAlpha = 0.28;
     ctx.translate(cx, cy);
     ctx.rotate(tiltAngle);
-    if (waistInset > 0) setTrapClip(ctx);
+    if (activeInset > 0) setTrapClip(ctx);
     ctx.drawImage(lit, -garW / 2, -garH / 2, garW, garH);
     ctx.restore();
   } catch {
