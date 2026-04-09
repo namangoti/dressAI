@@ -220,83 +220,74 @@ async function composite(
     return out.toDataURL("image/jpeg", 0.93);
   }
 
-  const garAR = garmentCanvas.width / garmentCanvas.height;
   let garX: number, garY: number, garW: number, garH: number;
   let topWarpScale = 1;
   let bottomWarpScale = 1;
+  let tiltAngle = 0;
+  const MAX_TILT = 12 * Math.PI / 180;
 
-  const region = poseRegions?.detected
-    ? (type === "tops" ? poseRegions.tops : poseRegions.bottoms)
-    : null;
+  if (type === "tops") {
+    if (poseRegions?.detected && poseRegions.shoulderL && poseRegions.shoulderR
+        && poseRegions.hipL && poseRegions.hipR && poseRegions.shoulderMidY != null && poseRegions.hipMidY != null) {
+      const shoulderMidX = (poseRegions.shoulderL.x + poseRegions.shoulderR.x) / 2;
+      const shoulderW = poseRegions.shoulderSpanPx! * 1.35;
+      const torsoTop = poseRegions.shoulderMidY - (poseRegions.hipMidY - poseRegions.shoulderMidY) * 0.08;
+      const torsoBottom = poseRegions.hipMidY;
 
-  if (region && poseRegions?.detected) {
-    if (type === "tops") {
-      garW = region.w;
-      garH = garW / garAR;
-      if (garH > region.h * 1.15) {
-        garH = region.h;
-        garW = garH * garAR;
-      }
-      garX = region.x + (region.w - garW) / 2;
-      garY = region.y;
+      garW = shoulderW;
+      garH = torsoBottom - torsoTop;
+      garX = shoulderMidX - garW / 2;
+      garY = torsoTop;
 
-      if (poseRegions.shoulderSpanPx && poseRegions.hipSpanPx) {
-        const taperRatio = Math.min(1, poseRegions.hipSpanPx / poseRegions.shoulderSpanPx);
-        topWarpScale = 1;
-        bottomWarpScale = 0.55 + taperRatio * 0.45;
-      }
+      const taperRatio = Math.min(1, (poseRegions.hipSpanPx ?? shoulderW) / (poseRegions.shoulderSpanPx ?? shoulderW));
+      topWarpScale = 1;
+      bottomWarpScale = 0.6 + taperRatio * 0.4;
+
+      const sLeft = poseRegions.shoulderL.x <= poseRegions.shoulderR.x ? poseRegions.shoulderL : poseRegions.shoulderR;
+      const sRight = poseRegions.shoulderL.x <= poseRegions.shoulderR.x ? poseRegions.shoulderR : poseRegions.shoulderL;
+      tiltAngle = Math.max(-MAX_TILT, Math.min(MAX_TILT, Math.atan2(sRight.y - sLeft.y, sRight.x - sLeft.x)));
     } else {
-      garW = region.w;
-      garH = garW / garAR;
-      if (garH > region.h * 1.05) {
-        garH = region.h;
-        garW = garH * garAR;
-      }
-      garX = region.x + (region.w - garW) / 2;
-      garY = region.y;
-
-      if (poseRegions.hipSpanPx && poseRegions.ankleSpanPx) {
-        const taperRatio = Math.min(1, poseRegions.ankleSpanPx / poseRegions.hipSpanPx);
-        topWarpScale = 1;
-        bottomWarpScale = 0.45 + taperRatio * 0.55;
-      }
+      garW = pw * 0.6;
+      garH = ph * 0.4;
+      garX = (pw - garW) / 2;
+      garY = ph * 0.1;
+      bottomWarpScale = 0.88;
     }
   } else {
-    const seamFallback = ph * 0.48;
-    if (type === "tops") {
-      const yStart = ph * 0.14;
-      garH = seamFallback - yStart;
-      garW = garH * garAR;
-      garX = (pw - garW) / 2;
-      garY = yStart;
-      bottomWarpScale = 0.88;
+    if (poseRegions?.detected && poseRegions.hipL && poseRegions.hipR && poseRegions.hipMidY != null) {
+      const hipMidX = (poseRegions.hipL.x + poseRegions.hipR.x) / 2;
+      const hipW = (poseRegions.hipSpanPx ?? pw * 0.3) * 1.5;
+      const hipY = poseRegions.hipMidY;
+
+      let legBottom: number;
+      if (poseRegions.ankleL && poseRegions.ankleR) {
+        legBottom = Math.max(poseRegions.ankleL.y, poseRegions.ankleR.y) + ph * 0.02;
+      } else if (poseRegions.kneeL && poseRegions.kneeR) {
+        const kneeAvgY = (poseRegions.kneeL.y + poseRegions.kneeR.y) / 2;
+        legBottom = kneeAvgY + (kneeAvgY - hipY) * 1.1;
+      } else {
+        legBottom = ph * 0.95;
+      }
+
+      garW = hipW;
+      garH = legBottom - hipY;
+      garX = hipMidX - garW / 2;
+      garY = hipY;
+
+      const taperRatio = Math.min(1, (poseRegions.ankleSpanPx ?? hipW * 0.5) / (poseRegions.hipSpanPx ?? hipW));
+      topWarpScale = 1;
+      bottomWarpScale = 0.5 + taperRatio * 0.5;
+
+      const hLeft = poseRegions.hipL.x <= poseRegions.hipR.x ? poseRegions.hipL : poseRegions.hipR;
+      const hRight = poseRegions.hipL.x <= poseRegions.hipR.x ? poseRegions.hipR : poseRegions.hipL;
+      tiltAngle = Math.max(-MAX_TILT, Math.min(MAX_TILT, Math.atan2(hRight.y - hLeft.y, hRight.x - hLeft.x)));
     } else {
-      const yEnd = ph * 0.98;
-      garH = yEnd - seamFallback;
-      garW = garH * garAR;
+      garW = pw * 0.5;
+      garH = ph * 0.5;
       garX = (pw - garW) / 2;
-      garY = seamFallback;
+      garY = ph * 0.5;
       bottomWarpScale = 0.72;
     }
-  }
-
-  const MAX_TILT = 15 * Math.PI / 180;
-  let tiltAngle = 0;
-
-  if (type === "tops" && poseRegions?.shoulderL && poseRegions?.shoulderR) {
-    const sLeft  = poseRegions.shoulderL.x <= poseRegions.shoulderR.x
-      ? poseRegions.shoulderL : poseRegions.shoulderR;
-    const sRight = poseRegions.shoulderL.x <= poseRegions.shoulderR.x
-      ? poseRegions.shoulderR : poseRegions.shoulderL;
-    const raw = Math.atan2(sRight.y - sLeft.y, sRight.x - sLeft.x);
-    tiltAngle = Math.max(-MAX_TILT, Math.min(MAX_TILT, raw));
-  } else if (type === "bottoms" && poseRegions?.hipL && poseRegions?.hipR) {
-    const hLeft  = poseRegions.hipL.x <= poseRegions.hipR.x
-      ? poseRegions.hipL : poseRegions.hipR;
-    const hRight = poseRegions.hipL.x <= poseRegions.hipR.x
-      ? poseRegions.hipR : poseRegions.hipL;
-    const raw = Math.atan2(hRight.y - hLeft.y, hRight.x - hLeft.x);
-    tiltAngle = Math.max(-MAX_TILT, Math.min(MAX_TILT, raw));
   }
 
   const cx = garX + garW / 2;
@@ -336,7 +327,6 @@ async function composite(
     drawWarpedStrips(ctx, lit, garW, garH, topWarpScale, bottomWarpScale);
     ctx.restore();
   } catch {
-    // Silently skip lighting pass if offscreen canvas fails
   }
 
   return out.toDataURL("image/jpeg", 0.93);
