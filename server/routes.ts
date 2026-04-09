@@ -7,7 +7,7 @@ function fetchWithTimeout(url: string, opts: RequestInit, ms: number) {
   return fetch(url, { ...opts, signal: ctrl.signal }).finally(() => clearTimeout(timer));
 }
 
-const MAX_POLL_MS   = 110_000;
+const MAX_POLL_MS   = 90_000;
 
 export async function registerRoutes(
   httpServer: Server,
@@ -15,7 +15,7 @@ export async function registerRoutes(
 ): Promise<Server> {
 
   app.post("/api/tryon", async (req, res) => {
-    res.setTimeout(125_000, () => {
+    res.setTimeout(95_000, () => {
       if (!res.headersSent) res.status(504).json({ error: "Server timed out — please try again." });
     });
 
@@ -76,7 +76,7 @@ export async function registerRoutes(
                 garment_des:     garmentName || "a clothing item",
                 is_checked:      true,
                 is_checked_crop: true,
-                denoise_steps:   40,
+                denoise_steps:   25,
                 seed:            Math.floor(Math.random() * 2147483647),
                 // Explicit torso mask removes original clothing (blazer/jacket ghost).
                 // Only included when pose detection succeeded on the client.
@@ -134,7 +134,7 @@ export async function registerRoutes(
       let attempt    = 0;
 
       while (Date.now() < deadline) {
-        await new Promise(r => setTimeout(r, 3000));
+        await new Promise(r => setTimeout(r, 2000));
         attempt++;
         console.log(`[tryon] Poll #${attempt}…`);
 

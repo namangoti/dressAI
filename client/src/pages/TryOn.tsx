@@ -687,16 +687,15 @@ export default function TryOn() {
     try {
       const g = GARMENTS.find(x => x.id === selectedId)!;
 
-      // Compress person photo — send at full natural size but max 1024px for quality
       const compressed = await new Promise<string>(resolve => {
         const img = new Image();
         img.onload = () => {
-          const scale = Math.min(1, 1024 / Math.max(img.width, img.height));
+          const scale = Math.min(1, 768 / Math.max(img.width, img.height));
           const c = document.createElement("canvas");
           c.width  = Math.round(img.width  * scale);
           c.height = Math.round(img.height * scale);
           c.getContext("2d")!.drawImage(img, 0, 0, c.width, c.height);
-          resolve(c.toDataURL("image/jpeg", 0.92));
+          resolve(c.toDataURL("image/jpeg", 0.85));
         };
         img.src = uploadedPhoto;
       });
@@ -713,13 +712,9 @@ export default function TryOn() {
         fr.readAsDataURL(garmentBlob);
       });
 
-      // Build a torso mask from pose keypoints so IDM-VTON knows exactly
-      // which region to replace, eliminating the original-clothing ghost.
-      // White = torso area (shoulders → hips, 20% outward padding).
-      // Black = everything else. Only generated when pose was detected.
       let garmentMaskImage: string | undefined;
-      if (poseRegions?.detected && poseRegions.tops) {
-        const t = poseRegions.tops;
+      const maskRegion = g.type === "tops" ? poseRegions?.tops : poseRegions?.bottoms;
+      if (poseRegions?.detected && maskRegion) {
         const refImg = await loadImage(uploadedPhoto);
         const origW  = refImg.naturalWidth  || refImg.width  || 768;
         const origH  = refImg.naturalHeight || refImg.height || 1024;
@@ -731,32 +726,27 @@ export default function TryOn() {
         mc.width   = mW; mc.height = mH;
         const mCtx = mc.getContext("2d")!;
 
-        // Black background (preserve everywhere outside torso)
         mCtx.fillStyle = "#000";
         mCtx.fillRect(0, 0, mW, mH);
 
-        // White filled torso rectangle scaled to match the compressed image
-        const mx = Math.max(0,  t.x * sc);
-        const my = Math.max(0,  t.y * sc);
-        const mw = Math.min(mW - mx, t.w * sc);
-        const mh = Math.min(mH - my, t.h * sc);
+        const mx = Math.max(0,  maskRegion.x * sc);
+        const my = Math.max(0,  maskRegion.y * sc);
+        const mw = Math.min(mW - mx, maskRegion.w * sc);
+        const mh = Math.min(mH - my, maskRegion.h * sc);
 
         if (mw > 0 && mh > 0) {
-          const r  = Math.min(mw, mh) * 0.08;  // slight rounding
+          const r  = Math.min(mw, mh) * 0.08;
           mCtx.fillStyle = "#fff";
           mCtx.beginPath();
           mCtx.roundRect(mx, my, mw, mh, r);
           mCtx.fill();
           garmentMaskImage = mc.toDataURL("image/png");
-          console.log("[mask] torso mask generated:", Math.round(mw), "×", Math.round(mh), "within", mW, "×", mH);
-        } else {
-          // Degenerate keypoints — skip mask (model falls back to auto-detect)
-          console.warn("[mask] degenerate torso geometry, skipping mask");
+          console.log("[mask] region mask generated:", g.type, Math.round(mw), "×", Math.round(mh), "within", mW, "×", mH);
         }
       }
 
       const ctrl  = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 130_000);
+      const timer = setTimeout(() => ctrl.abort(), 100_000);
       const resp  = await fetch("/api/tryon", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
