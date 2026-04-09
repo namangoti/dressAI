@@ -1021,13 +1021,13 @@ export default function TryOn() {
             </header>
 
             {/* ── Main display ── */}
-            <div className="mx-4 rounded-3xl overflow-hidden border border-border/30 shadow-xl relative shrink-0"
-              style={{ aspectRatio: "3/4", maxHeight: "50vh" }}>
+            <div className="mx-4 rounded-3xl overflow-hidden border border-border/30 shadow-xl relative shrink-0 bg-muted/30"
+              style={{ aspectRatio: "3/4", maxHeight: "60vh" }}>
 
               {/* Image layer */}
               {tryOnUrl ? (
                 <img src={tryOnUrl} alt="Try-On"
-                  className={`w-full h-full ${tryOnMode === "ai" ? "object-contain" : "object-cover object-top"} transition-opacity duration-200 ${compositing ? "opacity-60" : "opacity-100"}`} />
+                  className={`w-full h-full object-contain transition-opacity duration-200 ${compositing ? "opacity-60" : "opacity-100"}`} />
               ) : (
                 <img src={fallbackUrl} alt={garment.name}
                   className="w-full h-full object-cover object-top" />
@@ -1224,9 +1224,9 @@ export default function TryOn() {
                     className={`relative flex-shrink-0 w-[68px] rounded-2xl overflow-hidden cursor-pointer border-2 transition-all active:scale-95
                       ${selectedId === g.id ? "border-primary shadow-md shadow-primary/25 scale-105" : "border-border/40"}`}
                     style={{ aspectRatio: "3/4" }}>
-                    <img src={gender === "man" ? g.fallbackM : g.fallbackF}
+                    <img src={g.image}
                       alt={g.name}
-                      className="w-full h-full object-cover object-top bg-secondary/30" />
+                      className="w-full h-full object-contain bg-secondary/30" />
                     {g.tag && (
                       <div className="absolute top-1 left-1 bg-primary text-white text-[7px] font-bold px-1 py-0.5 rounded-full">
                         {g.tag}
