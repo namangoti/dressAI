@@ -59,6 +59,7 @@ const GARMENTS = [
 const SIZES = ["XS", "S", "M", "L", "XL", "XXL"] as const;
 type Size   = typeof SIZES[number];
 type Gender = "man" | "woman";
+type ClothingTypePayload = "top" | "bottom";
 
 const SKIN_TONES = [
   { key: "fair",   color: "#FDDBB4" },
@@ -229,129 +230,61 @@ async function composite(
   }
 
   let garX: number, garY: number, garW: number, garH: number;
-  let topWarpScale = 1;
-  let bottomWarpScale = 1;
-  let tiltAngle = 0;
-  const MAX_TILT = 12 * Math.PI / 180;
 
-  console.log("[composite] Clothing type:", type, "| Image size:", pw, "×", ph);
+  const region = poseRegions?.detected
+    ? (type === "tops" ? poseRegions.tops : poseRegions.bottoms)
+    : null;
 
-  if (type === "tops") {
-    if (poseRegions?.detected && poseRegions.shoulderL && poseRegions.shoulderR
-        && poseRegions.hipL && poseRegions.hipR && poseRegions.shoulderMidY != null && poseRegions.hipMidY != null) {
-      const shoulderMidX = (poseRegions.shoulderL.x + poseRegions.shoulderR.x) / 2;
-      const shoulderW = poseRegions.shoulderSpanPx! * 1.35;
-      const torsoTop = poseRegions.shoulderMidY - (poseRegions.hipMidY - poseRegions.shoulderMidY) * 0.08;
-      const torsoBottom = poseRegions.hipMidY;
-
-      garW = shoulderW;
-      garH = torsoBottom - torsoTop;
-      garX = shoulderMidX - garW / 2;
-      garY = torsoTop;
-
-      const taperRatio = Math.min(1, (poseRegions.hipSpanPx ?? shoulderW) / (poseRegions.shoulderSpanPx ?? shoulderW));
-      topWarpScale = 1;
-      bottomWarpScale = 0.6 + taperRatio * 0.4;
-
-      const sLeft = poseRegions.shoulderL.x <= poseRegions.shoulderR.x ? poseRegions.shoulderL : poseRegions.shoulderR;
-      const sRight = poseRegions.shoulderL.x <= poseRegions.shoulderR.x ? poseRegions.shoulderR : poseRegions.shoulderL;
-      tiltAngle = Math.max(-MAX_TILT, Math.min(MAX_TILT, Math.atan2(sRight.y - sLeft.y, sRight.x - sLeft.x)));
-    } else {
-      garW = pw * 0.6;
-      garH = ph * 0.4;
-      garX = (pw - garW) / 2;
-      garY = ph * 0.1;
-      bottomWarpScale = 0.88;
-    }
-
-    const maxBottom = ph * 0.55;
-    if (garY + garH > maxBottom) {
-      garH = maxBottom - garY;
-    }
-    console.log("[composite] TOP placed at y:", Math.round(garY), "to", Math.round(garY + garH));
-
-    const cx = garX + garW / 2;
-    const cy = garY + garH / 2;
-
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate(tiltAngle);
-    ctx.shadowColor   = "rgba(0,0,0,0.18)";
-    ctx.shadowBlur    = 12;
-    ctx.shadowOffsetY = 4;
-    ctx.globalAlpha   = 0.94;
-    drawWarpedStrips(ctx, garmentCanvas, garW, garH, topWarpScale, bottomWarpScale);
-    ctx.restore();
-
-    try {
-      const lit = document.createElement("canvas");
-      lit.width  = garmentCanvas.width;
-      lit.height = garmentCanvas.height;
-      const lCtx = lit.getContext("2d")!;
-      lCtx.drawImage(person, garX, garY, garW, garH, 0, 0, garmentCanvas.width, garmentCanvas.height);
-      lCtx.globalCompositeOperation = "destination-in";
-      lCtx.drawImage(garmentCanvas, 0, 0);
-      lCtx.globalCompositeOperation = "source-over";
-      ctx.save();
-      ctx.globalCompositeOperation = "multiply";
-      ctx.globalAlpha = 0.25;
-      ctx.translate(cx, cy);
-      ctx.rotate(tiltAngle);
-      drawWarpedStrips(ctx, lit, garW, garH, topWarpScale, bottomWarpScale);
-      ctx.restore();
-    } catch {}
+  if (region) {
+    const regionAR = region.w / region.h;
+    const garAR    = garmentCanvas.width / garmentCanvas.height;
+    if (garAR > regionAR) { garW = region.w; garH = garW / garAR; }
+    else                   { garH = region.h; garW = garH * garAR; }
+    garX = region.x + (region.w - garW) / 2;
+    garY = region.y + (region.h - garH) / 2;
   } else {
-    if (poseRegions?.detected && poseRegions.hipL && poseRegions.hipR && poseRegions.hipMidY != null) {
-      const hipMidX = poseRegions.bodyMidX ?? (poseRegions.hipL.x + poseRegions.hipR.x) / 2;
-      const hipW = (poseRegions.hipSpanPx ?? pw * 0.3) * 1.4;
-      garY = poseRegions.hipMidY;
-
-      let legBottom: number;
-      if (poseRegions.ankleL && poseRegions.ankleR) {
-        legBottom = Math.max(poseRegions.ankleL.y, poseRegions.ankleR.y) + ph * 0.03;
-      } else if (poseRegions.kneeL && poseRegions.kneeR) {
-        const kneeAvgY = (poseRegions.kneeL.y + poseRegions.kneeR.y) / 2;
-        legBottom = kneeAvgY + (kneeAvgY - garY) * 1.1;
-      } else {
-        legBottom = ph * 0.97;
-      }
-
-      garW = hipW;
-      garH = legBottom - garY;
-      garX = hipMidX - garW / 2;
-
-      const hLeft = poseRegions.hipL.x <= poseRegions.hipR.x ? poseRegions.hipL : poseRegions.hipR;
-      const hRight = poseRegions.hipL.x <= poseRegions.hipR.x ? poseRegions.hipR : poseRegions.hipL;
-      tiltAngle = Math.max(-MAX_TILT, Math.min(MAX_TILT, Math.atan2(hRight.y - hLeft.y, hRight.x - hLeft.x)));
-    } else {
-      garW = pw * 0.5;
-      garY = ph * 0.5;
-      garH = ph * 0.47;
-      garX = (pw - garW) / 2;
-    }
-
-    if (garY < ph * 0.45) {
-      garH -= (ph * 0.45 - garY);
-      garY = ph * 0.45;
-    }
-    if (garH < ph * 0.15) garH = ph * 0.15;
-    if (garY + garH > ph * 0.98) garH = ph * 0.98 - garY;
-
-    console.log("[composite] BOTTOM placed at y:", Math.round(garY), "to", Math.round(garY + garH), "(lower body, starts at", Math.round(garY / ph * 100) + "%)");
-
-    const cx = garX + garW / 2;
-    const cy = garY + garH / 2;
-
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate(tiltAngle);
-    ctx.shadowColor   = "rgba(0,0,0,0.15)";
-    ctx.shadowBlur    = 10;
-    ctx.shadowOffsetY = 3;
-    ctx.globalAlpha   = 0.92;
-    ctx.drawImage(garmentCanvas, -garW / 2, -garH / 2, garW, garH);
-    ctx.restore();
+    const yStart = type === "tops"    ? ph * 0.14 : ph * 0.55;
+    const yEnd   = type === "bottoms" ? ph * 0.98 : ph * 0.62;
+    garH = yEnd - yStart;
+    garW = garH * (garmentCanvas.width / garmentCanvas.height);
+    garX = (pw - garW) / 2;
+    garY = yStart;
   }
+
+  const MAX_TILT = 15 * Math.PI / 180;
+  let tiltAngle = 0;
+
+  if (type === "tops" && poseRegions?.shoulderL && poseRegions?.shoulderR) {
+    const sLeft  = poseRegions.shoulderL.x <= poseRegions.shoulderR.x
+      ? poseRegions.shoulderL : poseRegions.shoulderR;
+    const sRight = poseRegions.shoulderL.x <= poseRegions.shoulderR.x
+      ? poseRegions.shoulderR : poseRegions.shoulderL;
+    const raw = Math.atan2(sRight.y - sLeft.y, sRight.x - sLeft.x);
+    tiltAngle = Math.max(-MAX_TILT, Math.min(MAX_TILT, raw));
+  } else if (type === "bottoms" && poseRegions?.hipL && poseRegions?.hipR) {
+    const hLeft  = poseRegions.hipL.x <= poseRegions.hipR.x
+      ? poseRegions.hipL : poseRegions.hipR;
+    const hRight = poseRegions.hipL.x <= poseRegions.hipR.x
+      ? poseRegions.hipR : poseRegions.hipL;
+    const raw = Math.atan2(hRight.y - hLeft.y, hRight.x - hLeft.x);
+    tiltAngle = Math.max(-MAX_TILT, Math.min(MAX_TILT, raw));
+  }
+
+  console.log("[composite] type:", type, "placed at y:", Math.round(garY), "to", Math.round(garY + garH),
+    "(" + Math.round(garY / ph * 100) + "% –", Math.round((garY + garH) / ph * 100) + "%)");
+
+  const cx = garX + garW / 2;
+  const cy = garY + garH / 2;
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(tiltAngle);
+  ctx.shadowColor   = "rgba(0,0,0,0.15)";
+  ctx.shadowBlur    = 10;
+  ctx.shadowOffsetY = 3;
+  ctx.globalAlpha   = 0.92;
+  ctx.drawImage(garmentCanvas, -garW / 2, -garH / 2, garW, garH);
+  ctx.restore();
 
   return out.toDataURL("image/jpeg", 0.93);
 }
@@ -590,6 +523,9 @@ export default function TryOn() {
   const cache     = useRef<Map<number, HTMLCanvasElement>>(new Map());
   const [cacheReady, setCacheReady] = useState(false);
 
+  const toClothingTypePayload = (type: GarmentType): ClothingTypePayload =>
+    type === "bottoms" ? "bottom" : "top";
+
   /* Preload & process all garments once on mount */
   useEffect(() => {
     Promise.allSettled(
@@ -700,16 +636,18 @@ export default function TryOn() {
 
     try {
       const g = GARMENTS.find(x => x.id === selectedId)!;
+      const clothingType = toClothingTypePayload(g.type);
+      console.log("[tryon] AI request garment type:", g.type, "payload type:", clothingType, "id:", g.id, "name:", g.name);
 
       const compressed = await new Promise<string>(resolve => {
         const img = new Image();
         img.onload = () => {
-          const scale = Math.min(1, 768 / Math.max(img.width, img.height));
+          const scale = Math.min(1, 1024 / Math.max(img.width, img.height));
           const c = document.createElement("canvas");
           c.width  = Math.round(img.width  * scale);
           c.height = Math.round(img.height * scale);
           c.getContext("2d")!.drawImage(img, 0, 0, c.width, c.height);
-          resolve(c.toDataURL("image/jpeg", 0.85));
+          resolve(c.toDataURL("image/jpeg", 0.92));
         };
         img.src = uploadedPhoto;
       });
@@ -760,15 +698,16 @@ export default function TryOn() {
       }
 
       const ctrl  = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 100_000);
+      const timer = setTimeout(() => ctrl.abort(), 130_000);
       const resp  = await fetch("/api/tryon", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: ctrl.signal,
         body: JSON.stringify({
+          clothingType,
           personImage:  compressed,
           garmentImage: garmentBase64,
-          garmentName:  `${g.name}, size ${size}${g.type === "bottoms" ? `, waist ${waistSize}in` : ""}, for a ${height} cm ${weight} kg ${gender}`,
+          garmentName:  `${g.name}, ${clothingType} wear, size ${size}${g.type === "bottoms" ? `, waist ${waistSize}in` : ""}, for a ${height} cm ${weight} kg ${gender}`,
           ...(garmentMaskImage ? { garmentMaskImage } : {}),
         }),
       }).finally(() => clearTimeout(timer));

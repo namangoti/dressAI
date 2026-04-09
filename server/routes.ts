@@ -7,7 +7,7 @@ function fetchWithTimeout(url: string, opts: RequestInit, ms: number) {
   return fetch(url, { ...opts, signal: ctrl.signal }).finally(() => clearTimeout(timer));
 }
 
-const MAX_POLL_MS   = 90_000;
+const MAX_POLL_MS   = 110_000;
 
 export async function registerRoutes(
   httpServer: Server,
@@ -15,18 +15,23 @@ export async function registerRoutes(
 ): Promise<Server> {
 
   app.post("/api/tryon", async (req, res) => {
-    res.setTimeout(95_000, () => {
+    res.setTimeout(125_000, () => {
       if (!res.headersSent) res.status(504).json({ error: "Server timed out — please try again." });
     });
 
     try {
-      const { personImage, garmentImage, garmentName, garmentMaskImage } = req.body as {
-        personImage: string; garmentImage: string; garmentName?: string; garmentMaskImage?: string;
+      const { personImage, garmentImage, garmentName, garmentMaskImage, clothingType } = req.body as {
+        personImage: string;
+        garmentImage: string;
+        garmentName?: string;
+        garmentMaskImage?: string;
+        clothingType?: "top" | "bottom";
       };
 
       if (!personImage || !garmentImage) {
         return res.status(400).json({ error: "personImage and garmentImage are required" });
       }
+      console.log("[tryon] clothingType:", clothingType ?? "not provided");
 
       const token = process.env.REPLICATE_API_TOKEN;
       if (!token) return res.status(500).json({ error: "REPLICATE_API_TOKEN not configured" });
@@ -73,7 +78,7 @@ export async function registerRoutes(
               input: {
                 human_img:       personImage,
                 garm_img:        garmentImage,
-                garment_des:     garmentName || "a clothing item",
+                garment_des:     garmentName || (clothingType === "bottom" ? "bottom wear pants or jeans" : "top wear t-shirt or shirt"),
                 is_checked:      true,
                 is_checked_crop: true,
                 denoise_steps:   25,

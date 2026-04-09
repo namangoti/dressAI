@@ -1,0 +1,114 @@
+diff --git a/server/routes.ts b/server/routes.ts
+index c1b8634931bfbad6a888be5b03c361378f15c35d..7bac76dc45a99512f6b76c7e84ef6dbee63ec675 100644
+--- a/server/routes.ts
++++ b/server/routes.ts
+@@ -1,101 +1,106 @@
+ import type { Express } from "express";
+ import { createServer, type Server } from "http";
+ 
+ function fetchWithTimeout(url: string, opts: RequestInit, ms: number) {
+   const ctrl = new AbortController();
+   const timer = setTimeout(() => ctrl.abort(), ms);
+   return fetch(url, { ...opts, signal: ctrl.signal }).finally(() => clearTimeout(timer));
+ }
+ 
+ const MAX_POLL_MS   = 110_000;
+ 
+ export async function registerRoutes(
+   httpServer: Server,
+   app: Express
+ ): Promise<Server> {
+ 
+   app.post("/api/tryon", async (req, res) => {
+     res.setTimeout(125_000, () => {
+       if (!res.headersSent) res.status(504).json({ error: "Server timed out — please try again." });
+     });
+ 
+     try {
+-      const { personImage, garmentImage, garmentName, garmentMaskImage } = req.body as {
+-        personImage: string; garmentImage: string; garmentName?: string; garmentMaskImage?: string;
++      const { personImage, garmentImage, garmentName, garmentMaskImage, clothingType } = req.body as {
++        personImage: string;
++        garmentImage: string;
++        garmentName?: string;
++        garmentMaskImage?: string;
++        clothingType?: "top" | "bottom";
+       };
+ 
+       if (!personImage || !garmentImage) {
+         return res.status(400).json({ error: "personImage and garmentImage are required" });
+       }
++      console.log("[tryon] clothingType:", clothingType ?? "not provided");
+ 
+       const token = process.env.REPLICATE_API_TOKEN;
+       if (!token) return res.status(500).json({ error: "REPLICATE_API_TOKEN not configured" });
+ 
+       console.log("[tryon] Fetching latest model version…");
+ 
+       // Step 1: resolve the latest published version of cuuupid/idm-vton
+       let version: string;
+       try {
+         const vr = await fetchWithTimeout(
+           "https://api.replicate.com/v1/models/cuuupid/idm-vton/versions",
+           { headers: { Authorization: `Bearer ${token}` } },
+           15_000
+         );
+         if (!vr.ok) {
+           const body = await vr.json().catch(() => ({})) as any;
+           console.error("[tryon] Version fetch failed:", vr.status, JSON.stringify(body).slice(0, 200));
+           return res.status(502).json({ error: `Could not load AI model (HTTP ${vr.status}). Check your Replicate account and billing.` });
+         }
+         const vd = await vr.json() as any;
+         version = vd?.results?.[0]?.id;
+         if (!version) throw new Error("No published versions found for cuuupid/idm-vton");
+         console.log("[tryon] Using version:", version);
+       } catch (e: any) {
+         console.error("[tryon] Version fetch error:", e.message);
+         return res.status(502).json({ error: "Could not reach Replicate — check your network or API token." });
+       }
+ 
+       console.log("[tryon] Starting prediction…");
+ 
+       let startResp: Response;
+       try {
+         startResp = await fetchWithTimeout(
+           "https://api.replicate.com/v1/predictions",
+           {
+             method: "POST",
+             headers: {
+               Authorization: `Bearer ${token}`,
+               "Content-Type": "application/json",
+               "Prefer": "wait=55",
+             },
+             body: JSON.stringify({
+               version,
+               input: {
+                 human_img:       personImage,
+                 garm_img:        garmentImage,
+-                garment_des:     garmentName || "a clothing item",
++                garment_des:     garmentName || (clothingType === "bottom" ? "bottom wear pants or jeans" : "top wear t-shirt or shirt"),
+                 is_checked:      true,
+                 is_checked_crop: true,
+                 denoise_steps:   40,
+                 seed:            Math.floor(Math.random() * 2147483647),
+                 // Explicit torso mask removes original clothing (blazer/jacket ghost).
+                 // Only included when pose detection succeeded on the client.
+                 ...(garmentMaskImage ? { mask_image: garmentMaskImage } : {}),
+               },
+             }),
+           },
+           60_000
+         );
+       } catch (e: any) {
+         console.error("[tryon] Fetch error:", e.message);
+         return res.status(502).json({ error: "Could not reach AI service — please try again." });
+       }
+ 
+       const prediction = await startResp.json() as any;
+ 
+       // Billing / credit errors
+       if (startResp.status === 402) {
+         console.error("[tryon] Insufficient Replicate credits (402)");
+         return res.status(402).json({
+           error: "Replicate account has insufficient credits.",
+           type: "billing",
