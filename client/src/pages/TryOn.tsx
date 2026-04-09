@@ -226,6 +226,8 @@ async function composite(
   let tiltAngle = 0;
   const MAX_TILT = 12 * Math.PI / 180;
 
+  console.log("[composite] Clothing type:", type, "| Image size:", pw, "×", ph);
+
   if (type === "tops") {
     if (poseRegions?.detected && poseRegions.shoulderL && poseRegions.shoulderR
         && poseRegions.hipL && poseRegions.hipR && poseRegions.shoulderMidY != null && poseRegions.hipMidY != null) {
@@ -288,6 +290,21 @@ async function composite(
       garY = ph * 0.5;
       bottomWarpScale = 0.72;
     }
+  }
+
+  if (type === "tops") {
+    const maxBottom = ph * 0.55;
+    if (garY + garH > maxBottom) {
+      garH = maxBottom - garY;
+    }
+    console.log("[composite] TOP placed at y:", Math.round(garY), "to", Math.round(garY + garH), "(upper body)");
+  } else {
+    const minTop = ph * 0.45;
+    if (garY < minTop) {
+      garH -= (minTop - garY);
+      garY = minTop;
+    }
+    console.log("[composite] BOTTOM placed at y:", Math.round(garY), "to", Math.round(garY + garH), "(lower body)");
   }
 
   const cx = garX + garW / 2;
