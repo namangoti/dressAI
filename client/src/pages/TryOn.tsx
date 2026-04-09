@@ -235,9 +235,9 @@ async function composite(
     ? (type === "tops" ? poseRegions.tops : poseRegions.bottoms)
     : null;
 
-  const bodySplitY = ph * 0.5;
-  const regionYMin = type === "tops" ? 0 : bodySplitY;
-  const regionYMax = type === "tops" ? bodySplitY : ph;
+  const waistLine  = ph * 0.42;
+  const regionYMin = type === "tops" ? 0 : waistLine;
+  const regionYMax = type === "tops" ? ph * 0.55 : ph;
 
   if (region) {
     const regionAR = region.w / region.h;
@@ -247,8 +247,8 @@ async function composite(
     garX = region.x + (region.w - garW) / 2;
     garY = region.y + (region.h - garH) / 2;
   } else {
-    const yStart = type === "tops"    ? ph * 0.14 : ph * 0.55;
-    const yEnd   = type === "bottoms" ? ph * 0.98 : ph * 0.62;
+    const yStart = type === "tops"    ? ph * 0.14 : ph * 0.42;
+    const yEnd   = type === "bottoms" ? ph * 0.96 : ph * 0.62;
     garH = yEnd - yStart;
     garW = garH * (garmentCanvas.width / garmentCanvas.height);
     garX = (pw - garW) / 2;
@@ -263,7 +263,7 @@ async function composite(
   }
   garY = Math.max(regionYMin, Math.min(garY, regionYMax - garH));
   if (type === "bottoms") {
-    garY = Math.max(garY, bodySplitY);
+    garY = Math.max(garY, waistLine);
   }
 
   const MAX_TILT = 15 * Math.PI / 180;
