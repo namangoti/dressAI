@@ -255,95 +255,68 @@ async function composite(
       garY = ph * 0.1;
       bottomWarpScale = 0.88;
     }
-  } else {
-    if (poseRegions?.detected && poseRegions.hipL && poseRegions.hipR && poseRegions.hipMidY != null) {
-      const hipMidX = (poseRegions.hipL.x + poseRegions.hipR.x) / 2;
-      const hipW = (poseRegions.hipSpanPx ?? pw * 0.3) * 1.5;
-      const hipY = poseRegions.hipMidY;
 
-      let legBottom: number;
-      if (poseRegions.ankleL && poseRegions.ankleR) {
-        legBottom = Math.max(poseRegions.ankleL.y, poseRegions.ankleR.y) + ph * 0.02;
-      } else if (poseRegions.kneeL && poseRegions.kneeR) {
-        const kneeAvgY = (poseRegions.kneeL.y + poseRegions.kneeR.y) / 2;
-        legBottom = kneeAvgY + (kneeAvgY - hipY) * 1.1;
-      } else {
-        legBottom = ph * 0.95;
-      }
-
-      garW = hipW;
-      garH = legBottom - hipY;
-      garX = hipMidX - garW / 2;
-      garY = hipY;
-
-      const taperRatio = Math.min(1, (poseRegions.ankleSpanPx ?? hipW * 0.5) / (poseRegions.hipSpanPx ?? hipW));
-      topWarpScale = 1;
-      bottomWarpScale = 0.5 + taperRatio * 0.5;
-
-      const hLeft = poseRegions.hipL.x <= poseRegions.hipR.x ? poseRegions.hipL : poseRegions.hipR;
-      const hRight = poseRegions.hipL.x <= poseRegions.hipR.x ? poseRegions.hipR : poseRegions.hipL;
-      tiltAngle = Math.max(-MAX_TILT, Math.min(MAX_TILT, Math.atan2(hRight.y - hLeft.y, hRight.x - hLeft.x)));
-    } else {
-      garW = pw * 0.5;
-      garH = ph * 0.5;
-      garX = (pw - garW) / 2;
-      garY = ph * 0.5;
-      bottomWarpScale = 0.72;
-    }
-  }
-
-  if (type === "tops") {
     const maxBottom = ph * 0.55;
     if (garY + garH > maxBottom) {
       garH = maxBottom - garY;
     }
-    console.log("[composite] TOP placed at y:", Math.round(garY), "to", Math.round(garY + garH), "(upper body)");
-  } else {
-    const minTop = ph * 0.45;
-    if (garY < minTop) {
-      garH -= (minTop - garY);
-      garY = minTop;
-    }
-    console.log("[composite] BOTTOM placed at y:", Math.round(garY), "to", Math.round(garY + garH), "(lower body)");
-  }
+    console.log("[composite] TOP placed at y:", Math.round(garY), "to", Math.round(garY + garH));
 
-  const cx = garX + garW / 2;
-  const cy = garY + garH / 2;
-
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate(tiltAngle);
-  ctx.shadowColor   = "rgba(0,0,0,0.18)";
-  ctx.shadowBlur    = 12;
-  ctx.shadowOffsetY = 4;
-  ctx.globalAlpha   = 0.94;
-  drawWarpedStrips(ctx, garmentCanvas, garW, garH, topWarpScale, bottomWarpScale);
-  ctx.restore();
-
-  try {
-    const lit = document.createElement("canvas");
-    lit.width  = garmentCanvas.width;
-    lit.height = garmentCanvas.height;
-    const lCtx = lit.getContext("2d")!;
-
-    lCtx.drawImage(
-      person,
-      garX, garY, garW, garH,
-      0, 0, garmentCanvas.width, garmentCanvas.height,
-    );
-
-    lCtx.globalCompositeOperation = "destination-in";
-    lCtx.drawImage(garmentCanvas, 0, 0);
-    lCtx.globalCompositeOperation = "source-over";
+    const cx = garX + garW / 2;
+    const cy = garY + garH / 2;
 
     ctx.save();
-    ctx.globalCompositeOperation = "multiply";
-    ctx.globalAlpha = 0.25;
     ctx.translate(cx, cy);
     ctx.rotate(tiltAngle);
-    drawWarpedStrips(ctx, lit, garW, garH, topWarpScale, bottomWarpScale);
+    ctx.shadowColor   = "rgba(0,0,0,0.18)";
+    ctx.shadowBlur    = 12;
+    ctx.shadowOffsetY = 4;
+    ctx.globalAlpha   = 0.94;
+    drawWarpedStrips(ctx, garmentCanvas, garW, garH, topWarpScale, bottomWarpScale);
     ctx.restore();
-  } catch {
+
+    try {
+      const lit = document.createElement("canvas");
+      lit.width  = garmentCanvas.width;
+      lit.height = garmentCanvas.height;
+      const lCtx = lit.getContext("2d")!;
+      lCtx.drawImage(person, garX, garY, garW, garH, 0, 0, garmentCanvas.width, garmentCanvas.height);
+      lCtx.globalCompositeOperation = "destination-in";
+      lCtx.drawImage(garmentCanvas, 0, 0);
+      lCtx.globalCompositeOperation = "source-over";
+      ctx.save();
+      ctx.globalCompositeOperation = "multiply";
+      ctx.globalAlpha = 0.25;
+      ctx.translate(cx, cy);
+      ctx.rotate(tiltAngle);
+      drawWarpedStrips(ctx, lit, garW, garH, topWarpScale, bottomWarpScale);
+      ctx.restore();
+    } catch {}
+  } else {
+    if (poseRegions?.detected && poseRegions.hipMidY != null) {
+      garY = poseRegions.hipMidY;
+    } else {
+      garY = ph * 0.5;
+    }
+
+    garW = pw * 0.5;
+    garH = ph - garY - ph * 0.02;
+    garX = (pw - garW) / 2;
+
+    if (garY < ph * 0.45) {
+      garY = ph * 0.45;
+      garH = ph - garY - ph * 0.02;
+    }
+
+    console.log("[composite] BOTTOM placed at y:", Math.round(garY), "to", Math.round(garY + garH), "(lower body, starts at", Math.round(garY / ph * 100) + "%)");
+
+    ctx.save();
+    ctx.shadowColor   = "rgba(0,0,0,0.15)";
+    ctx.shadowBlur    = 10;
+    ctx.shadowOffsetY = 3;
+    ctx.globalAlpha   = 0.92;
+    ctx.drawImage(garmentCanvas, garX, garY, garW, garH);
+    ctx.restore();
   }
 
   return out.toDataURL("image/jpeg", 0.93);
