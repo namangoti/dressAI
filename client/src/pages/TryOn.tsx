@@ -148,9 +148,55 @@ function processGarment(src: string): Promise<HTMLCanvasElement> {
 }
 
 /**
+ * Draw a garment in horizontal strips, linearly interpolating the width
+ * from `topScale` (fraction of garW at the top edge) to `bottomScale`
+ * (fraction of garW at the bottom edge). This creates a perspective-warp
+ * effect that follows the body's contour (e.g. wider at shoulders, narrower
+ * at waist for tops; wider at hips, narrower at ankles for bottoms).
+ *
+ * The strips are drawn in the caller's coordinate system (already translated
+ * / rotated to the garment center). garW/garH define the full garment rect.
+ */
+function drawWarpedStrips(
+  ctx: CanvasRenderingContext2D,
+  garment: HTMLCanvasElement,
+  garW: number,
+  garH: number,
+  topScale: number,
+  bottomScale: number,
+) {
+  const STRIPS = 32;
+  const srcH = garment.height;
+  const srcW = garment.width;
+  const stripH = garH / STRIPS;
+  const srcStripH = srcH / STRIPS;
+
+  for (let i = 0; i < STRIPS; i++) {
+    const t = STRIPS <= 1 ? 0 : i / (STRIPS - 1);
+    const scale = topScale + (bottomScale - topScale) * t;
+    const stripW = garW * scale;
+    const stripX = -stripW / 2;
+    const stripY = -garH / 2 + i * stripH;
+
+    ctx.drawImage(
+      garment,
+      0, Math.round(i * srcStripH), srcW, Math.ceil(srcStripH) + 1,
+      stripX, stripY, stripW, stripH + 0.5,
+    );
+  }
+}
+
+/**
  * Composite a garment onto a person photo.
- * Uses detected body regions when available; falls back to proportional
- * estimates if pose detection didn't succeed.
+ *
+ * Key principles:
+ * - TOPS are anchored at shoulder level and scaled by shoulder width.
+ *   They taper from shoulder width to hip width for a body-hugging look.
+ * - BOTTOMS are anchored at hip level and scaled by hip width.
+ *   They taper from hip width to ankle width for a realistic leg fit.
+ * - When pose detection is unavailable, proportional fallbacks are used
+ *   with separate coordinate ranges for tops (14–62% height) and
+ *   bottoms (46–98% height).
  */
 async function composite(
   personDataUrl: string,
@@ -174,37 +220,66 @@ async function composite(
     return out.toDataURL("image/jpeg", 0.93);
   }
 
+  const garAR = garmentCanvas.width / garmentCanvas.height;
   let garX: number, garY: number, garW: number, garH: number;
+  let topWarpScale = 1;
+  let bottomWarpScale = 1;
 
-  // ── Pose-based placement ──────────────────────────────────
   const region = poseRegions?.detected
     ? (type === "tops" ? poseRegions.tops : poseRegions.bottoms)
     : null;
 
-  if (region) {
-    const regionAR = region.w / region.h;
-    const garAR    = garmentCanvas.width / garmentCanvas.height;
-    if (garAR > regionAR) { garW = region.w; garH = garW / garAR; }
-    else                   { garH = region.h; garW = garH * garAR; }
-    garX = region.x + (region.w - garW) / 2;
-    garY = region.y + (region.h - garH) / 2;
+  if (region && poseRegions?.detected) {
+    if (type === "tops") {
+      garW = region.w;
+      garH = garW / garAR;
+      if (garH > region.h * 1.15) {
+        garH = region.h;
+        garW = garH * garAR;
+      }
+      garX = region.x + (region.w - garW) / 2;
+      garY = region.y;
+
+      if (poseRegions.shoulderSpanPx && poseRegions.hipSpanPx) {
+        const taperRatio = Math.min(1, poseRegions.hipSpanPx / poseRegions.shoulderSpanPx);
+        topWarpScale = 1;
+        bottomWarpScale = 0.55 + taperRatio * 0.45;
+      }
+    } else {
+      garW = region.w;
+      garH = garW / garAR;
+      if (garH > region.h * 1.05) {
+        garH = region.h;
+        garW = garH * garAR;
+      }
+      garX = region.x + (region.w - garW) / 2;
+      garY = region.y;
+
+      if (poseRegions.hipSpanPx && poseRegions.ankleSpanPx) {
+        const taperRatio = Math.min(1, poseRegions.ankleSpanPx / poseRegions.hipSpanPx);
+        topWarpScale = 1;
+        bottomWarpScale = 0.45 + taperRatio * 0.55;
+      }
+    }
   } else {
-    const yStart = type === "tops"    ? ph * 0.14 : ph * 0.46;
-    const yEnd   = type === "bottoms" ? ph * 0.98 : ph * 0.62;
-    garH = yEnd - yStart;
-    garW = garH * (garmentCanvas.width / garmentCanvas.height);
-    garX = (pw - garW) / 2;
-    garY = yStart;
+    const seamFallback = ph * 0.48;
+    if (type === "tops") {
+      const yStart = ph * 0.14;
+      garH = seamFallback - yStart;
+      garW = garH * garAR;
+      garX = (pw - garW) / 2;
+      garY = yStart;
+      bottomWarpScale = 0.88;
+    } else {
+      const yEnd = ph * 0.98;
+      garH = yEnd - seamFallback;
+      garW = garH * garAR;
+      garX = (pw - garW) / 2;
+      garY = seamFallback;
+      bottomWarpScale = 0.72;
+    }
   }
 
-  // ── Garment-angle tilt ────────────────────────────────────
-  // Tops tilt with the shoulder slope; bottoms tilt with the hip slope.
-  // IMPORTANT: Sort keypoints by image-x before computing atan2. Pose models
-  // use anatomical left/right, which in a front-facing photo means the
-  // "right" keypoint appears at lower x than the "left" keypoint. Without
-  // sorting, dx is negative for a level person, giving atan2 ≈ ±π and a
-  // persistent ±15° erroneous tilt. Sorting guarantees dx > 0 so atan2
-  // stays in [-π/2, +π/2] and level posture gives ~0°.
   const MAX_TILT = 15 * Math.PI / 180;
   let tiltAngle = 0;
 
@@ -215,9 +290,7 @@ async function composite(
       ? poseRegions.shoulderR : poseRegions.shoulderL;
     const raw = Math.atan2(sRight.y - sLeft.y, sRight.x - sLeft.x);
     tiltAngle = Math.max(-MAX_TILT, Math.min(MAX_TILT, raw));
-
   } else if (type === "bottoms" && poseRegions?.hipL && poseRegions?.hipR) {
-    // Same x-sorted approach for hips — gives the true hip-line slope
     const hLeft  = poseRegions.hipL.x <= poseRegions.hipR.x
       ? poseRegions.hipL : poseRegions.hipR;
     const hRight = poseRegions.hipL.x <= poseRegions.hipR.x
@@ -226,103 +299,44 @@ async function composite(
     tiltAngle = Math.max(-MAX_TILT, Math.min(MAX_TILT, raw));
   }
 
-  // ── Waist taper (tops only) ───────────────────────────────
-  // If the hips are narrower than the shoulders, clip the garment into a
-  // trapezoid so the bottom edge tapers inward like a real t-shirt silhouette.
-  let bottomInset = 0;
-  if (type === "tops" && poseRegions?.shoulderSpanPx && poseRegions?.hipSpanPx) {
-    const taperRatio = Math.min(1, poseRegions.hipSpanPx / poseRegions.shoulderSpanPx);
-    if (taperRatio < 0.95) {
-      bottomInset = (garW / 2) * (1 - taperRatio) * 0.40;
-    }
-  }
-
-  // ── Ankle taper (bottoms only) ────────────────────────────
-  // Jeans/trousers narrow from hip to ankle. Clip the garment into a
-  // top-wide, bottom-narrow trapezoid using the ankleSpanPx / hipSpanPx
-  // ratio. Shorts are excluded: if the garment height is less than 50% of
-  // the detected leg region height, it doesn't reach the ankle so no taper.
-  let topInset = 0;
-  if (type === "bottoms" && poseRegions?.hipSpanPx && poseRegions?.ankleSpanPx) {
-    const legRegionH = poseRegions.bottoms?.h ?? 0;
-    const isTallEnough = legRegionH <= 0 || garH >= legRegionH * 0.50;
-    if (isTallEnough) {
-      const taperRatio = Math.min(1, poseRegions.ankleSpanPx / poseRegions.hipSpanPx);
-      if (taperRatio < 0.95) {
-        // Conservative factor: max ~40% of half-width at full taper
-        topInset = (garW / 2) * (1 - taperRatio) * 0.40;
-      }
-    }
-  }
-
-  // ── Helper: trapezoid clip path (in rotated local coords) ─
-  // bottomInset > 0 → tops taper (narrow bottom / waist)
-  // topInset    > 0 → bottoms taper (narrow bottom / ankle, wide top / hip)
-  // Note: for bottoms the trapezoid is still "top wide, bottom narrow" —
-  // the "top" is the hip edge and the "bottom" is the ankle edge of the garment.
-  const activeInset = type === "tops" ? bottomInset : topInset;
-  const setTrapClip = (c: CanvasRenderingContext2D) => {
-    c.beginPath();
-    c.moveTo(-garW / 2,                -garH / 2);  // top-left  (full width)
-    c.lineTo( garW / 2,                -garH / 2);  // top-right (full width)
-    c.lineTo( garW / 2 - activeInset,   garH / 2);  // bottom-right (tapered)
-    c.lineTo(-garW / 2 + activeInset,   garH / 2);  // bottom-left  (tapered)
-    c.closePath();
-    c.clip();
-  };
-
   const cx = garX + garW / 2;
   const cy = garY + garH / 2;
 
-  // ── Pass 1: garment with shadow ───────────────────────────
   ctx.save();
   ctx.translate(cx, cy);
   ctx.rotate(tiltAngle);
-  if (activeInset > 0) setTrapClip(ctx);
-  ctx.shadowColor   = "rgba(0,0,0,0.20)";
-  ctx.shadowBlur    = 14;
-  ctx.shadowOffsetY = 5;
-  ctx.globalAlpha   = 0.93;
-  ctx.drawImage(garmentCanvas, -garW / 2, -garH / 2, garW, garH);
+  ctx.shadowColor   = "rgba(0,0,0,0.18)";
+  ctx.shadowBlur    = 12;
+  ctx.shadowOffsetY = 4;
+  ctx.globalAlpha   = 0.94;
+  drawWarpedStrips(ctx, garmentCanvas, garW, garH, topWarpScale, bottomWarpScale);
   ctx.restore();
 
-  // ── Pass 2: multiply blend — photo lighting bleeds through ─
-  // Build an offscreen canvas where the person photo is masked by the
-  // garment's own alpha channel. This ensures only pixels that are
-  // actually covered by the garment (not transparent background areas)
-  // receive the lighting tint, avoiding erroneous darkening of the
-  // person photo that shows through transparent garment edges.
   try {
     const lit = document.createElement("canvas");
     lit.width  = garmentCanvas.width;
     lit.height = garmentCanvas.height;
     const lCtx = lit.getContext("2d")!;
 
-    // Draw person photo cropped to the garment area and scaled to garment canvas size
     lCtx.drawImage(
       person,
-      garX, garY, garW, garH,         // source region (garment area in photo)
-      0, 0, garmentCanvas.width, garmentCanvas.height,  // dest: full lit canvas
+      garX, garY, garW, garH,
+      0, 0, garmentCanvas.width, garmentCanvas.height,
     );
 
-    // Mask to garment alpha: keep only pixels where garment is opaque
     lCtx.globalCompositeOperation = "destination-in";
     lCtx.drawImage(garmentCanvas, 0, 0);
     lCtx.globalCompositeOperation = "source-over";
 
-    // Composite the masked lit canvas onto the main output with multiply.
-    // Apply the same trapezoid clip as pass 1 so the lighting tint stays
-    // within the tapered silhouette and doesn't bleed into corners.
     ctx.save();
     ctx.globalCompositeOperation = "multiply";
-    ctx.globalAlpha = 0.28;
+    ctx.globalAlpha = 0.25;
     ctx.translate(cx, cy);
     ctx.rotate(tiltAngle);
-    if (activeInset > 0) setTrapClip(ctx);
-    ctx.drawImage(lit, -garW / 2, -garH / 2, garW, garH);
+    drawWarpedStrips(ctx, lit, garW, garH, topWarpScale, bottomWarpScale);
     ctx.restore();
   } catch {
-    // Silently skip lighting pass if offscreen canvas fails (e.g., tainted)
+    // Silently skip lighting pass if offscreen canvas fails
   }
 
   return out.toDataURL("image/jpeg", 0.93);

@@ -14,19 +14,25 @@ export interface BodyRegion {
 export interface PoseRegions {
   tops:           BodyRegion | null;
   bottoms:        BodyRegion | null;
-  face:           BodyRegion | null;   // face bounding box in original photo pixels
-  neckY:          number | null;        // Y pixel where face/neck transitions to chest
-  hipCY:          number | null;        // Y pixel center of hips (lower body cut line)
+  face:           BodyRegion | null;
+  neckY:          number | null;
+  hipCY:          number | null;
   detected:       boolean;
-  // Raw keypoint coordinates used by the canvas compositor
-  shoulderL:      { x: number; y: number } | null;  // left  shoulder keypoint
-  shoulderR:      { x: number; y: number } | null;  // right shoulder keypoint
-  shoulderSpanPx: number | null;  // pixel distance between shoulder keypoints
-  hipSpanPx:      number | null;  // pixel distance between hip keypoints
-  // Hip/ankle keypoints for bottoms tilt + ankle taper
-  hipL:           { x: number; y: number } | null;  // left  hip keypoint
-  hipR:           { x: number; y: number } | null;  // right hip keypoint
-  ankleSpanPx:    number | null;  // pixel distance between ankle keypoints (estimated when not detected)
+  shoulderL:      { x: number; y: number } | null;
+  shoulderR:      { x: number; y: number } | null;
+  shoulderSpanPx: number | null;
+  hipSpanPx:      number | null;
+  hipL:           { x: number; y: number } | null;
+  hipR:           { x: number; y: number } | null;
+  ankleSpanPx:    number | null;
+  kneeL:          { x: number; y: number } | null;
+  kneeR:          { x: number; y: number } | null;
+  kneeSpanPx:     number | null;
+  ankleL:         { x: number; y: number } | null;
+  ankleR:         { x: number; y: number } | null;
+  shoulderMidY:   number | null;
+  hipMidY:        number | null;
+  bodyMidX:       number | null;
 }
 
 type DetectorType = PoseDetectionTypes.PoseDetector;
@@ -65,6 +71,9 @@ export async function detectPoseRegions(
     shoulderL: null, shoulderR: null,
     shoulderSpanPx: null, hipSpanPx: null,
     hipL: null, hipR: null, ankleSpanPx: null,
+    kneeL: null, kneeR: null, kneeSpanPx: null,
+    ankleL: null, ankleR: null,
+    shoulderMidY: null, hipMidY: null, bodyMidX: null,
   };
 
   try {
@@ -103,23 +112,24 @@ export async function detectPoseRegions(
     const shoulderSpan = Math.abs(rShoulder!.x - lShoulder!.x);
     const torsoH       = hipCY - shoulderCY;
 
-    // ── Tops region ──────────────────────────────────────────────
+    const seamY = hipCY;
+
     const tW: number = shoulderSpan * 1.30;
-    const tH: number = torsoH * 1.25;
+    const tTopY = shoulderCY - torsoH * 0.10;
+    const tH: number = seamY - tTopY;
     const tops: BodyRegion = {
       x: shoulderCX - tW / 2,
-      y: shoulderCY - tH * 0.10,
+      y: tTopY,
       w: tW,
       h: tH,
     };
 
-    // ── Bottoms region ───────────────────────────────────────────
     const hipSpan = Math.abs(rHip!.x - lHip!.x);
     let legH: number;
     if (ok(lAnkle, rAnkle)) {
-      legH = ((lAnkle!.y + rAnkle!.y) / 2) - hipCY;
+      legH = ((lAnkle!.y + rAnkle!.y) / 2) - seamY;
     } else if (ok(lKnee, rKnee)) {
-      legH = (((lKnee!.y + rKnee!.y) / 2) - hipCY) * 2.1;
+      legH = (((lKnee!.y + rKnee!.y) / 2) - seamY) * 2.1;
     } else {
       legH = torsoH * 1.6;
     }
@@ -127,7 +137,7 @@ export async function detectPoseRegions(
     const bH: number = legH * 1.05;
     const bottoms: BodyRegion = {
       x: hipCX - bW / 2,
-      y: hipCY - bH * 0.04,
+      y: seamY,
       w: bW,
       h: bH,
     };
@@ -178,6 +188,10 @@ export async function detectPoseRegions(
       ankleSpanPx = hipSpan * 0.65;
     }
 
+    const kneeSpanPx = ok(lKnee, rKnee)
+      ? Math.abs(rKnee!.x - lKnee!.x)
+      : hipSpan * 0.75;
+
     return {
       tops, bottoms, face, neckY, hipCY, detected: true,
       shoulderL:      { x: lShoulder!.x, y: lShoulder!.y },
@@ -187,6 +201,14 @@ export async function detectPoseRegions(
       hipL:           { x: lHip!.x, y: lHip!.y },
       hipR:           { x: rHip!.x, y: rHip!.y },
       ankleSpanPx,
+      kneeL:          ok(lKnee) ? { x: lKnee!.x, y: lKnee!.y } : null,
+      kneeR:          ok(rKnee) ? { x: rKnee!.x, y: rKnee!.y } : null,
+      kneeSpanPx,
+      ankleL:         ok(lAnkle) ? { x: lAnkle!.x, y: lAnkle!.y } : null,
+      ankleR:         ok(rAnkle) ? { x: rAnkle!.x, y: rAnkle!.y } : null,
+      shoulderMidY:   shoulderCY,
+      hipMidY:        hipCY,
+      bodyMidX:       (shoulderCX + hipCX) / 2,
     };
   } catch (err) {
     console.warn("[pose] detection failed:", err instanceof Error ? err.message : String(err));
