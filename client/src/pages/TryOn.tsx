@@ -130,12 +130,20 @@ function processGarment(src: string): Promise<HTMLCanvasElement> {
         c.width   = w;
         c.height  = h;
         const ctx = c.getContext("2d", { willReadFrequently: true });
-        if (!ctx) { resolve(c); return; } // canvas unavailable — return blank, don't crash
+        if (!ctx) { resolve(c); return; }
         ctx.drawImage(img, 0, 0);
         try {
-          ctx.putImageData(stripBackground(ctx.getImageData(0, 0, w, h)), 0, 0);
+          const imgData = ctx.getImageData(0, 0, w, h);
+          const d = imgData.data;
+          let hasTransparency = false;
+          const corners = [0, (w - 1) * 4, ((h - 1) * w) * 4, ((h - 1) * w + w - 1) * 4];
+          for (const ci of corners) {
+            if (ci < d.length - 3 && d[ci + 3] < 128) { hasTransparency = true; break; }
+          }
+          if (!hasTransparency) {
+            ctx.putImageData(stripBackground(imgData), 0, 0);
+          }
         } catch {
-          // getImageData can fail (CORS/security) — still resolve with drawn canvas
         }
         resolve(c);
       } catch (err) {
