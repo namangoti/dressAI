@@ -235,6 +235,10 @@ async function composite(
     ? (type === "tops" ? poseRegions.tops : poseRegions.bottoms)
     : null;
 
+  const bodySplitY = ph * 0.5;
+  const regionYMin = type === "tops" ? 0 : bodySplitY;
+  const regionYMax = type === "tops" ? bodySplitY : ph;
+
   if (region) {
     const regionAR = region.w / region.h;
     const garAR    = garmentCanvas.width / garmentCanvas.height;
@@ -249,6 +253,17 @@ async function composite(
     garW = garH * (garmentCanvas.width / garmentCanvas.height);
     garX = (pw - garW) / 2;
     garY = yStart;
+  }
+
+  const bandHeight = regionYMax - regionYMin;
+  if (garH > bandHeight) {
+    garH = bandHeight * 0.98;
+    garW = garH * (garmentCanvas.width / garmentCanvas.height);
+    garX = (pw - garW) / 2;
+  }
+  garY = Math.max(regionYMin, Math.min(garY, regionYMax - garH));
+  if (type === "bottoms") {
+    garY = Math.max(garY, bodySplitY);
   }
 
   const MAX_TILT = 15 * Math.PI / 180;
@@ -270,6 +285,44 @@ async function composite(
     tiltAngle = Math.max(-MAX_TILT, Math.min(MAX_TILT, raw));
   }
 
+  let bottomInset = 0;
+  let topInset    = 0;
+
+  if (type === "tops" && poseRegions?.shoulderSpanPx && poseRegions?.hipSpanPx) {
+    const taperRatio = Math.min(1, poseRegions.hipSpanPx / poseRegions.shoulderSpanPx);
+    if (taperRatio < 0.95) {
+      bottomInset = (garW / 2) * (1 - taperRatio) * 0.40;
+    }
+  }
+
+  if (type === "bottoms" && poseRegions?.hipSpanPx && poseRegions?.ankleSpanPx) {
+    const legRegionH = (poseRegions.ankleL && poseRegions.hipL)
+      ? Math.abs(poseRegions.ankleL.y - poseRegions.hipL.y) : 0;
+    const isTallEnough = legRegionH <= 0 || garH >= legRegionH * 0.50;
+    if (isTallEnough) {
+      const taperRatio = Math.min(1, poseRegions.ankleSpanPx / poseRegions.hipSpanPx);
+      if (taperRatio < 0.95) {
+        topInset = (garW / 2) * (1 - taperRatio) * 0.40;
+      }
+    }
+  }
+
+  const activeInset = type === "tops" ? bottomInset : topInset;
+  const setTrapClip = (c: CanvasRenderingContext2D) => {
+    c.beginPath();
+    c.moveTo(-garW / 2,                -garH / 2);
+    c.lineTo( garW / 2,                -garH / 2);
+    c.lineTo( garW / 2 - activeInset,   garH / 2);
+    c.lineTo(-garW / 2 + activeInset,   garH / 2);
+    c.closePath();
+    c.clip();
+  };
+  const setBodyRegionClip = (c: CanvasRenderingContext2D) => {
+    c.beginPath();
+    c.rect(0, regionYMin, pw, bandHeight);
+    c.clip();
+  };
+
   console.log("[composite] type:", type, "placed at y:", Math.round(garY), "to", Math.round(garY + garH),
     "(" + Math.round(garY / ph * 100) + "% –", Math.round((garY + garH) / ph * 100) + "%)");
 
@@ -277,14 +330,37 @@ async function composite(
   const cy = garY + garH / 2;
 
   ctx.save();
+  setBodyRegionClip(ctx);
   ctx.translate(cx, cy);
   ctx.rotate(tiltAngle);
-  ctx.shadowColor   = "rgba(0,0,0,0.15)";
-  ctx.shadowBlur    = 10;
-  ctx.shadowOffsetY = 3;
-  ctx.globalAlpha   = 0.92;
+  if (activeInset > 0) setTrapClip(ctx);
+  ctx.shadowColor   = "rgba(0,0,0,0.20)";
+  ctx.shadowBlur    = 14;
+  ctx.shadowOffsetY = 5;
+  ctx.globalAlpha   = 0.93;
   ctx.drawImage(garmentCanvas, -garW / 2, -garH / 2, garW, garH);
   ctx.restore();
+
+  try {
+    const lit = document.createElement("canvas");
+    lit.width  = garmentCanvas.width;
+    lit.height = garmentCanvas.height;
+    const lCtx = lit.getContext("2d")!;
+    lCtx.drawImage(person, garX, garY, garW, garH, 0, 0, garmentCanvas.width, garmentCanvas.height);
+    lCtx.globalCompositeOperation = "destination-in";
+    lCtx.drawImage(garmentCanvas, 0, 0);
+    lCtx.globalCompositeOperation = "source-over";
+
+    ctx.save();
+    setBodyRegionClip(ctx);
+    ctx.globalCompositeOperation = "multiply";
+    ctx.globalAlpha = 0.28;
+    ctx.translate(cx, cy);
+    ctx.rotate(tiltAngle);
+    if (activeInset > 0) setTrapClip(ctx);
+    ctx.drawImage(lit, -garW / 2, -garH / 2, garW, garH);
+    ctx.restore();
+  } catch {}
 
   return out.toDataURL("image/jpeg", 0.93);
 }
@@ -441,10 +517,38 @@ async function restoreBodyRegions(
     }
   }
 
+  if (garmentType === "bottoms") {
+    try {
+      const patch  = document.createElement("canvas");
+      patch.width  = aiW; patch.height = aiH;
+      const pCtx   = patch.getContext("2d")!;
+      pCtx.drawImage(origImg, 0, 0, aiW, aiH);
+
+      const maskC  = document.createElement("canvas");
+      maskC.width  = aiW; maskC.height = aiH;
+      const mCtx   = maskC.getContext("2d")!;
+
+      const splitY  = aiH * 0.50;
+      const feather = aiH * 0.06;
+      const grad    = mCtx.createLinearGradient(0, splitY - feather, 0, splitY + feather);
+      grad.addColorStop(0, "rgba(255,255,255,1)");
+      grad.addColorStop(1, "rgba(255,255,255,0)");
+      mCtx.fillStyle = grad;
+      mCtx.fillRect(0, 0, aiW, Math.min(aiH, splitY + feather));
+
+      pCtx.globalCompositeOperation = "destination-in";
+      pCtx.drawImage(maskC, 0, 0);
+      pCtx.globalCompositeOperation = "source-over";
+
+      ctx.drawImage(patch, 0, 0);
+    } catch (e) {
+      console.warn("[restore] upper body patch failed:", e);
+    }
+  }
+
   try {
     return out.toDataURL("image/jpeg", 0.93);
   } catch {
-    // Canvas tainted (CORS) — return original AI URL unchanged
     console.warn("[restore] canvas tainted — skipping restoration");
     return aiResultUrl;
   }
