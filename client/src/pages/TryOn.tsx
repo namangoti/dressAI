@@ -293,29 +293,55 @@ async function composite(
       ctx.restore();
     } catch {}
   } else {
-    if (poseRegions?.detected && poseRegions.hipMidY != null) {
+    if (poseRegions?.detected && poseRegions.hipL && poseRegions.hipR && poseRegions.hipMidY != null) {
+      const hipMidX = poseRegions.bodyMidX ?? (poseRegions.hipL.x + poseRegions.hipR.x) / 2;
+      const hipW = (poseRegions.hipSpanPx ?? pw * 0.3) * 1.4;
       garY = poseRegions.hipMidY;
-    } else {
-      garY = ph * 0.5;
-    }
 
-    garW = pw * 0.5;
-    garH = ph - garY - ph * 0.02;
-    garX = (pw - garW) / 2;
+      let legBottom: number;
+      if (poseRegions.ankleL && poseRegions.ankleR) {
+        legBottom = Math.max(poseRegions.ankleL.y, poseRegions.ankleR.y) + ph * 0.03;
+      } else if (poseRegions.kneeL && poseRegions.kneeR) {
+        const kneeAvgY = (poseRegions.kneeL.y + poseRegions.kneeR.y) / 2;
+        legBottom = kneeAvgY + (kneeAvgY - garY) * 1.1;
+      } else {
+        legBottom = ph * 0.97;
+      }
+
+      garW = hipW;
+      garH = legBottom - garY;
+      garX = hipMidX - garW / 2;
+
+      const hLeft = poseRegions.hipL.x <= poseRegions.hipR.x ? poseRegions.hipL : poseRegions.hipR;
+      const hRight = poseRegions.hipL.x <= poseRegions.hipR.x ? poseRegions.hipR : poseRegions.hipL;
+      tiltAngle = Math.max(-MAX_TILT, Math.min(MAX_TILT, Math.atan2(hRight.y - hLeft.y, hRight.x - hLeft.x)));
+    } else {
+      garW = pw * 0.5;
+      garY = ph * 0.5;
+      garH = ph * 0.47;
+      garX = (pw - garW) / 2;
+    }
 
     if (garY < ph * 0.45) {
+      garH -= (ph * 0.45 - garY);
       garY = ph * 0.45;
-      garH = ph - garY - ph * 0.02;
     }
+    if (garH < ph * 0.15) garH = ph * 0.15;
+    if (garY + garH > ph * 0.98) garH = ph * 0.98 - garY;
 
     console.log("[composite] BOTTOM placed at y:", Math.round(garY), "to", Math.round(garY + garH), "(lower body, starts at", Math.round(garY / ph * 100) + "%)");
 
+    const cx = garX + garW / 2;
+    const cy = garY + garH / 2;
+
     ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(tiltAngle);
     ctx.shadowColor   = "rgba(0,0,0,0.15)";
     ctx.shadowBlur    = 10;
     ctx.shadowOffsetY = 3;
     ctx.globalAlpha   = 0.92;
-    ctx.drawImage(garmentCanvas, garX, garY, garW, garH);
+    ctx.drawImage(garmentCanvas, -garW / 2, -garH / 2, garW, garH);
     ctx.restore();
   }
 

@@ -70,7 +70,7 @@ title = "Mens casual shirt flat lay"
 id = "ksvJ94OcI5aqagzIzMRN3"
 uri = "file://client/src/assets/images/mens-jeans.png"
 type = "image"
-title = "Mens jeans flat lay"
+title = "classic blue jeans front"
 
 [[generated]]
 id = "c7lzDoKNHok2Z_kG-FLdP"
@@ -100,19 +100,19 @@ title = "Kids dress flat lay"
 id = "oQE8_e5iEXyu9LTm5ypqd"
 uri = "file://client/src/assets/images/jeans-blue-denim.png"
 type = "image"
-title = "blue denim jeans product"
+title = "blue denim jeans front"
 
 [[generated]]
 id = "z_8Fpv--O6I7yxfIBCcWF"
 uri = "file://client/src/assets/images/jeans-black-slim.png"
 type = "image"
-title = "black slim jeans product"
+title = "black slim jeans front"
 
 [[generated]]
 id = "LhHpZ8OXPLknyxveOx_d2"
 uri = "file://client/src/assets/images/trousers-khaki-chino.png"
 type = "image"
-title = "khaki chino trousers product"
+title = "khaki chino trousers front"
 
 [[outputs]]
 id = "DH2-EdXjdIGnlmt_Nlfkr"
