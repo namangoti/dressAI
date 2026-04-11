@@ -212,6 +212,7 @@ async function composite(
   garmentCanvas: HTMLCanvasElement,
   type: GarmentType,
   poseRegions?: PoseRegions | null,
+  heightCm: number = 170,
 ): Promise<string> {
   const person = await loadImage(personDataUrl);
   const pw = person.naturalWidth  || person.width  || 400;
@@ -235,9 +236,30 @@ async function composite(
     ? (type === "tops" ? poseRegions.tops : poseRegions.bottoms)
     : null;
 
-  const waistLine  = ph * 0.42;
+  let waistLine: number;
+  let ankleLineY: number;
+  let topsBottom: number;
+
+  const hasBody = poseRegions?.detected
+    && poseRegions.headTopY != null
+    && poseRegions.bodyHeightPx != null
+    && poseRegions.bodyHeightPx > 0;
+
+  if (hasBody) {
+    const pxPerCm    = poseRegions!.bodyHeightPx! / heightCm;
+    waistLine  = poseRegions!.headTopY! + heightCm * 0.42 * pxPerCm;
+    ankleLineY = poseRegions!.headTopY! + heightCm * 0.96 * pxPerCm;
+    topsBottom = poseRegions!.headTopY! + heightCm * 0.55 * pxPerCm;
+    console.log("[composite] height-based: waist=", Math.round(waistLine),
+      "ankle=", Math.round(ankleLineY), "pxPerCm=", pxPerCm.toFixed(2));
+  } else {
+    waistLine  = ph * 0.42;
+    ankleLineY = ph * 0.96;
+    topsBottom = ph * 0.55;
+  }
+
   const regionYMin = type === "tops" ? 0 : waistLine;
-  const regionYMax = type === "tops" ? ph * 0.55 : ph;
+  const regionYMax = type === "tops" ? topsBottom : ankleLineY;
 
   if (region) {
     const regionAR = region.w / region.h;
@@ -676,13 +698,14 @@ export default function TryOn() {
     photo: string,
     garmentId: number,
     regions: PoseRegions | null,
+    heightCm: number,
   ) => {
     const garmentCanvas = cache.current.get(garmentId);
     if (!garmentCanvas) return;
     const g = GARMENTS.find(x => x.id === garmentId)!;
     setCompositing(true);
     try {
-      const result = await composite(photo, garmentCanvas, g.type, regions);
+      const result = await composite(photo, garmentCanvas, g.type, regions, heightCm);
       setTryOnUrl(result);
       setTryOnMode("canvas");
     } catch (err: any) {
@@ -695,11 +718,11 @@ export default function TryOn() {
 
   useEffect(() => {
     if (uploadedPhoto && cacheReady && !poseDetecting) {
-      doComposite(uploadedPhoto, selectedId, poseRegions);
+      doComposite(uploadedPhoto, selectedId, poseRegions, height);
     } else if (!uploadedPhoto) {
       setTryOnUrl(null);
     }
-  }, [uploadedPhoto, selectedId, cacheReady, poseDetecting, poseRegions, doComposite]);
+  }, [uploadedPhoto, selectedId, cacheReady, poseDetecting, poseRegions, doComposite, height]);
 
   const garment    = GARMENTS.find(g => g.id === selectedId)!;
   const fallbackUrl = gender === "man" ? garment.fallbackM : garment.fallbackF;

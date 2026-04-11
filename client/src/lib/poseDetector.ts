@@ -33,6 +33,9 @@ export interface PoseRegions {
   shoulderMidY:   number | null;
   hipMidY:        number | null;
   bodyMidX:       number | null;
+  headTopY:       number | null;
+  ankleBottomY:   number | null;
+  bodyHeightPx:   number | null;
 }
 
 type DetectorType = PoseDetectionTypes.PoseDetector;
@@ -74,6 +77,7 @@ export async function detectPoseRegions(
     kneeL: null, kneeR: null, kneeSpanPx: null,
     ankleL: null, ankleR: null,
     shoulderMidY: null, hipMidY: null, bodyMidX: null,
+    headTopY: null, ankleBottomY: null, bodyHeightPx: null,
   };
 
   try {
@@ -192,6 +196,29 @@ export async function detectPoseRegions(
       ? Math.abs(rKnee!.x - lKnee!.x)
       : hipSpan * 0.75;
 
+    let headTopY: number | null = null;
+    if (ok(nose, lEye, rEye)) {
+      const eyeMidY     = (lEye!.y + rEye!.y) / 2;
+      const noseEyeDist = Math.max(1, nose!.y - eyeMidY);
+      headTopY = eyeMidY - noseEyeDist * 2.5;
+    } else {
+      headTopY = shoulderCY - torsoH * 0.45;
+    }
+
+    let ankleBottomY: number | null = null;
+    if (ok(lAnkle, rAnkle)) {
+      ankleBottomY = Math.max(lAnkle!.y, rAnkle!.y);
+    } else if (ok(lKnee, rKnee)) {
+      const kneeMidY = (lKnee!.y + rKnee!.y) / 2;
+      ankleBottomY = kneeMidY + (kneeMidY - hipCY) * 1.05;
+    } else {
+      ankleBottomY = hipCY + torsoH * 1.7;
+    }
+
+    const bodyHeightPx = (headTopY != null && ankleBottomY != null)
+      ? ankleBottomY - headTopY
+      : null;
+
     return {
       tops, bottoms, face, neckY, hipCY, detected: true,
       shoulderL:      { x: lShoulder!.x, y: lShoulder!.y },
@@ -209,6 +236,9 @@ export async function detectPoseRegions(
       shoulderMidY:   shoulderCY,
       hipMidY:        hipCY,
       bodyMidX:       (shoulderCX + hipCX) / 2,
+      headTopY,
+      ankleBottomY,
+      bodyHeightPx,
     };
   } catch (err) {
     console.warn("[pose] detection failed:", err instanceof Error ? err.message : String(err));
