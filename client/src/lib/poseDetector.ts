@@ -201,18 +201,11 @@ export async function detectPoseRegions(
       const eyeMidY     = (lEye!.y + rEye!.y) / 2;
       const noseEyeDist = Math.max(1, nose!.y - eyeMidY);
       headTopY = eyeMidY - noseEyeDist * 2.5;
-    } else {
-      headTopY = shoulderCY - torsoH * 0.45;
     }
 
     let ankleBottomY: number | null = null;
     if (ok(lAnkle, rAnkle)) {
       ankleBottomY = Math.max(lAnkle!.y, rAnkle!.y);
-    } else if (ok(lKnee, rKnee)) {
-      const kneeMidY = (lKnee!.y + rKnee!.y) / 2;
-      ankleBottomY = kneeMidY + (kneeMidY - hipCY) * 1.05;
-    } else {
-      ankleBottomY = hipCY + torsoH * 1.7;
     }
 
     const bodyHeightPx = (headTopY != null && ankleBottomY != null)

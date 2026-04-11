@@ -249,7 +249,7 @@ async function composite(
     const pxPerCm    = poseRegions!.bodyHeightPx! / heightCm;
     waistLine  = poseRegions!.headTopY! + heightCm * 0.42 * pxPerCm;
     ankleLineY = poseRegions!.headTopY! + heightCm * 0.96 * pxPerCm;
-    topsBottom = poseRegions!.headTopY! + heightCm * 0.55 * pxPerCm;
+    topsBottom = waistLine;
     console.log("[composite] height-based: waist=", Math.round(waistLine),
       "ankle=", Math.round(ankleLineY), "pxPerCm=", pxPerCm.toFixed(2));
   } else {
