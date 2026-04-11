@@ -240,12 +240,19 @@ async function composite(
   const regionYMax = type === "tops" ? bodySplitY : ph;
 
   if (region) {
-    const regionAR = region.w / region.h;
-    const garAR    = garmentCanvas.width / garmentCanvas.height;
-    if (garAR > regionAR) { garW = region.w; garH = garW / garAR; }
-    else                   { garH = region.h; garW = garH * garAR; }
-    garX = region.x + (region.w - garW) / 2;
-    garY = region.y + (region.h - garH) / 2;
+    if (type === "bottoms") {
+      garH = region.h;
+      garW = garH * (garmentCanvas.width / garmentCanvas.height);
+      garX = region.x + (region.w - garW) / 2;
+      garY = region.y;
+    } else {
+      const regionAR = region.w / region.h;
+      const garAR    = garmentCanvas.width / garmentCanvas.height;
+      if (garAR > regionAR) { garW = region.w; garH = garW / garAR; }
+      else                   { garH = region.h; garW = garH * garAR; }
+      garX = region.x + (region.w - garW) / 2;
+      garY = region.y + (region.h - garH) / 2;
+    }
   } else {
     const yStart = type === "tops"    ? ph * 0.14 : ph * 0.55;
     const yEnd   = type === "bottoms" ? ph * 0.98 : ph * 0.62;
