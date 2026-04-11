@@ -212,7 +212,6 @@ async function composite(
   garmentCanvas: HTMLCanvasElement,
   type: GarmentType,
   poseRegions?: PoseRegions | null,
-  heightCm: number = 170,
 ): Promise<string> {
   const person = await loadImage(personDataUrl);
   const pw = person.naturalWidth  || person.width  || 400;
@@ -236,30 +235,9 @@ async function composite(
     ? (type === "tops" ? poseRegions.tops : poseRegions.bottoms)
     : null;
 
-  let waistLine: number;
-  let ankleLineY: number;
-  let topsBottom: number;
-
-  const hasBody = poseRegions?.detected
-    && poseRegions.headTopY != null
-    && poseRegions.bodyHeightPx != null
-    && poseRegions.bodyHeightPx > 0;
-
-  if (hasBody) {
-    const pxPerCm    = poseRegions!.bodyHeightPx! / heightCm;
-    waistLine  = poseRegions!.headTopY! + heightCm * 0.42 * pxPerCm;
-    ankleLineY = poseRegions!.headTopY! + heightCm * 0.96 * pxPerCm;
-    topsBottom = waistLine;
-    console.log("[composite] height-based: waist=", Math.round(waistLine),
-      "ankle=", Math.round(ankleLineY), "pxPerCm=", pxPerCm.toFixed(2));
-  } else {
-    waistLine  = ph * 0.42;
-    ankleLineY = ph * 0.96;
-    topsBottom = ph * 0.55;
-  }
-
-  const regionYMin = type === "tops" ? 0 : waistLine;
-  const regionYMax = type === "tops" ? topsBottom : ankleLineY;
+  const bodySplitY = ph * 0.5;
+  const regionYMin = type === "tops" ? 0 : bodySplitY;
+  const regionYMax = type === "tops" ? bodySplitY : ph;
 
   if (region) {
     const regionAR = region.w / region.h;
@@ -269,8 +247,8 @@ async function composite(
     garX = region.x + (region.w - garW) / 2;
     garY = region.y + (region.h - garH) / 2;
   } else {
-    const yStart = type === "tops"    ? ph * 0.14 : ph * 0.42;
-    const yEnd   = type === "bottoms" ? ph * 0.96 : ph * 0.62;
+    const yStart = type === "tops"    ? ph * 0.14 : ph * 0.55;
+    const yEnd   = type === "bottoms" ? ph * 0.98 : ph * 0.62;
     garH = yEnd - yStart;
     garW = garH * (garmentCanvas.width / garmentCanvas.height);
     garX = (pw - garW) / 2;
@@ -285,7 +263,7 @@ async function composite(
   }
   garY = Math.max(regionYMin, Math.min(garY, regionYMax - garH));
   if (type === "bottoms") {
-    garY = Math.max(garY, waistLine);
+    garY = Math.max(garY, bodySplitY);
   }
 
   const MAX_TILT = 15 * Math.PI / 180;
@@ -698,14 +676,14 @@ export default function TryOn() {
     photo: string,
     garmentId: number,
     regions: PoseRegions | null,
-    heightCm: number,
   ) => {
     const garmentCanvas = cache.current.get(garmentId);
     if (!garmentCanvas) return;
     const g = GARMENTS.find(x => x.id === garmentId)!;
+    console.log("[tryon] composite garment type:", g.type, "id:", g.id, "name:", g.name);
     setCompositing(true);
     try {
-      const result = await composite(photo, garmentCanvas, g.type, regions, heightCm);
+      const result = await composite(photo, garmentCanvas, g.type, regions);
       setTryOnUrl(result);
       setTryOnMode("canvas");
     } catch (err: any) {
@@ -718,11 +696,11 @@ export default function TryOn() {
 
   useEffect(() => {
     if (uploadedPhoto && cacheReady && !poseDetecting) {
-      doComposite(uploadedPhoto, selectedId, poseRegions, height);
+      doComposite(uploadedPhoto, selectedId, poseRegions);
     } else if (!uploadedPhoto) {
       setTryOnUrl(null);
     }
-  }, [uploadedPhoto, selectedId, cacheReady, poseDetecting, poseRegions, doComposite, height]);
+  }, [uploadedPhoto, selectedId, cacheReady, poseDetecting, poseRegions, doComposite]);
 
   const garment    = GARMENTS.find(g => g.id === selectedId)!;
   const fallbackUrl = gender === "man" ? garment.fallbackM : garment.fallbackF;

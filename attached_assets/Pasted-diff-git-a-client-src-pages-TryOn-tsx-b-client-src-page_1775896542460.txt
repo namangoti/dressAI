@@ -1,0 +1,661 @@
+diff --git a/client/src/pages/TryOn.tsx b/client/src/pages/TryOn.tsx
+index 029834d85f8a65c13ac43403176bf84abba104e7..4172344e3b5ab239f22266b2732db64330f3f57b 100644
+--- a/client/src/pages/TryOn.tsx
++++ b/client/src/pages/TryOn.tsx
+@@ -37,50 +37,51 @@ const GARMENTS = [
+     fallbackM: "https://images.unsplash.com/photo-1503341504253-dff4815485f1?w=600&q=80",
+     fallbackF: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=600&q=80" },
+   { id: 5,  image: garment5,  name: "Blue T-Shirt",      price: "₹599",  tag: "",           type: "tops" as GarmentType,
+     fallbackM: "https://images.unsplash.com/photo-1473621038790-b778b4de3b84?w=600&q=80",
+     fallbackF: "https://images.unsplash.com/photo-1495385794356-15371f348c31?w=600&q=80" },
+   { id: 6,  image: garment6,  name: "Graphic T-Shirt",   price: "₹799",  tag: "Trending",   type: "tops" as GarmentType,
+     fallbackM: "https://images.unsplash.com/photo-1562157873-818bc0726f68?w=600&q=80",
+     fallbackF: "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=600&q=80" },
+   { id: 7,  image: garment7,  name: "Classic Blue Jeans", price: "₹1,299", tag: "Bestseller", type: "bottoms" as GarmentType,
+     fallbackM: "https://images.unsplash.com/photo-1542272604-787c3835535d?w=600&q=80",
+     fallbackF: "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=600&q=80" },
+   { id: 8,  image: garment8,  name: "Black Slim Jeans",  price: "₹1,199", tag: "New",        type: "bottoms" as GarmentType,
+     fallbackM: "https://images.unsplash.com/photo-1473966968600-fa801b869a1a?w=600&q=80",
+     fallbackF: "https://images.unsplash.com/photo-1582418702059-97ebafb35d09?w=600&q=80" },
+   { id: 9,  image: garment9,  name: "Blue Denim Jeans",  price: "₹1,099", tag: "",           type: "bottoms" as GarmentType,
+     fallbackM: "https://images.unsplash.com/photo-1555689502-c4b22d76c56f?w=600&q=80",
+     fallbackF: "https://images.unsplash.com/photo-1604176354204-9268737828e4?w=600&q=80" },
+   { id: 10, image: garment10, name: "Khaki Chinos",      price: "₹999",  tag: "Hot",        type: "bottoms" as GarmentType,
+     fallbackM: "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=600&q=80",
+     fallbackF: "https://images.unsplash.com/photo-1506629082955-511b1aa562c8?w=600&q=80" },
+ ];
+ 
+ const SIZES = ["XS", "S", "M", "L", "XL", "XXL"] as const;
+ type Size   = typeof SIZES[number];
+ type Gender = "man" | "woman";
++type ClothingTypePayload = "top" | "bottom";
+ 
+ const SKIN_TONES = [
+   { key: "fair",   color: "#FDDBB4" },
+   { key: "light",  color: "#E8B88A" },
+   { key: "medium", color: "#C68642" },
+   { key: "tan",    color: "#A0522D" },
+   { key: "dark",   color: "#4A2912" },
+ ];
+ 
+ /* ── Canvas utilities ─────────────────────────────────────── */
+ 
+ /**
+  * Load an <img> from any src. Rejects with a proper Error (not a browser Event).
+  */
+ function loadImage(src: string, crossOrigin = false): Promise<HTMLImageElement> {
+   return new Promise((resolve, reject) => {
+     const img = new Image();
+     if (crossOrigin) img.crossOrigin = "anonymous";
+     img.onload  = () => resolve(img);
+     img.onerror = () => reject(new Error(`Image load failed: ${src.slice(0, 80)}`));
+     img.src = src;
+   });
+ }
+ 
+ /**
+@@ -159,66 +160,86 @@ async function composite(
+   poseRegions?: PoseRegions | null,
+ ): Promise<string> {
+   const person = await loadImage(personDataUrl);
+   const pw = person.naturalWidth  || person.width  || 400;
+   const ph = person.naturalHeight || person.height || 600;
+ 
+   const out = document.createElement("canvas");
+   out.width  = pw;
+   out.height = ph;
+   const ctx  = out.getContext("2d");
+   if (!ctx) return personDataUrl;
+ 
+   ctx.drawImage(person, 0, 0, pw, ph);
+ 
+   if (garmentCanvas.width <= 0 || garmentCanvas.height <= 0) {
+     return out.toDataURL("image/jpeg", 0.93);
+   }
+ 
+   let garX: number, garY: number, garW: number, garH: number;
+ 
+   // ── Pose-based placement ──────────────────────────────────
+   const region = poseRegions?.detected
+     ? (type === "tops" ? poseRegions.tops : poseRegions.bottoms)
+     : null;
+ 
++  const bodySplitY = ph * 0.5;
++  const regionYMin = type === "tops" ? 0 : bodySplitY;
++  const regionYMax = type === "tops" ? bodySplitY : ph;
++
+   if (region) {
+     const regionAR = region.w / region.h;
+     const garAR    = garmentCanvas.width / garmentCanvas.height;
+     if (garAR > regionAR) { garW = region.w; garH = garW / garAR; }
+     else                   { garH = region.h; garW = garH * garAR; }
+     garX = region.x + (region.w - garW) / 2;
+     garY = region.y + (region.h - garH) / 2;
+   } else {
+-    const yStart = type === "tops"    ? ph * 0.14 : ph * 0.46;
++    // Explicitly keep bottoms in the lower body when pose detection is unavailable.
++    // bottoms: start near waist (≈55% image height) and extend down to ankles.
++    const yStart = type === "tops"    ? ph * 0.14 : ph * 0.55;
+     const yEnd   = type === "bottoms" ? ph * 0.98 : ph * 0.62;
+     garH = yEnd - yStart;
+     garW = garH * (garmentCanvas.width / garmentCanvas.height);
+     garX = (pw - garW) / 2;
+     garY = yStart;
+   }
+ 
++  // Hard body split constraints:
++  // tops can only appear in upper 0–50%; bottoms only in lower 50–100%.
++  const bandHeight = regionYMax - regionYMin;
++  if (garH > bandHeight) {
++    garH = bandHeight * 0.98;
++    garW = garH * (garmentCanvas.width / garmentCanvas.height);
++    garX = (pw - garW) / 2;
++  }
++  garY = Math.max(regionYMin, Math.min(garY, regionYMax - garH));
++  if (type === "bottoms") {
++    // Non-negotiable requirement: bottoms must never render above the waist split.
++    garY = Math.max(garY, bodySplitY);
++  }
++
+   // ── Garment-angle tilt ────────────────────────────────────
+   // Tops tilt with the shoulder slope; bottoms tilt with the hip slope.
+   // IMPORTANT: Sort keypoints by image-x before computing atan2. Pose models
+   // use anatomical left/right, which in a front-facing photo means the
+   // "right" keypoint appears at lower x than the "left" keypoint. Without
+   // sorting, dx is negative for a level person, giving atan2 ≈ ±π and a
+   // persistent ±15° erroneous tilt. Sorting guarantees dx > 0 so atan2
+   // stays in [-π/2, +π/2] and level posture gives ~0°.
+   const MAX_TILT = 15 * Math.PI / 180;
+   let tiltAngle = 0;
+ 
+   if (type === "tops" && poseRegions?.shoulderL && poseRegions?.shoulderR) {
+     const sLeft  = poseRegions.shoulderL.x <= poseRegions.shoulderR.x
+       ? poseRegions.shoulderL : poseRegions.shoulderR;
+     const sRight = poseRegions.shoulderL.x <= poseRegions.shoulderR.x
+       ? poseRegions.shoulderR : poseRegions.shoulderL;
+     const raw = Math.atan2(sRight.y - sLeft.y, sRight.x - sLeft.x);
+     tiltAngle = Math.max(-MAX_TILT, Math.min(MAX_TILT, raw));
+ 
+   } else if (type === "bottoms" && poseRegions?.hipL && poseRegions?.hipR) {
+     // Same x-sorted approach for hips — gives the true hip-line slope
+     const hLeft  = poseRegions.hipL.x <= poseRegions.hipR.x
+       ? poseRegions.hipL : poseRegions.hipR;
+     const hRight = poseRegions.hipL.x <= poseRegions.hipR.x
+       ? poseRegions.hipR : poseRegions.hipL;
+@@ -248,94 +269,101 @@ async function composite(
+     const isTallEnough = legRegionH <= 0 || garH >= legRegionH * 0.50;
+     if (isTallEnough) {
+       const taperRatio = Math.min(1, poseRegions.ankleSpanPx / poseRegions.hipSpanPx);
+       if (taperRatio < 0.95) {
+         // Conservative factor: max ~40% of half-width at full taper
+         topInset = (garW / 2) * (1 - taperRatio) * 0.40;
+       }
+     }
+   }
+ 
+   // ── Helper: trapezoid clip path (in rotated local coords) ─
+   // bottomInset > 0 → tops taper (narrow bottom / waist)
+   // topInset    > 0 → bottoms taper (narrow bottom / ankle, wide top / hip)
+   // Note: for bottoms the trapezoid is still "top wide, bottom narrow" —
+   // the "top" is the hip edge and the "bottom" is the ankle edge of the garment.
+   const activeInset = type === "tops" ? bottomInset : topInset;
+   const setTrapClip = (c: CanvasRenderingContext2D) => {
+     c.beginPath();
+     c.moveTo(-garW / 2,                -garH / 2);  // top-left  (full width)
+     c.lineTo( garW / 2,                -garH / 2);  // top-right (full width)
+     c.lineTo( garW / 2 - activeInset,   garH / 2);  // bottom-right (tapered)
+     c.lineTo(-garW / 2 + activeInset,   garH / 2);  // bottom-left  (tapered)
+     c.closePath();
+     c.clip();
+   };
++  const setBodyRegionClip = (c: CanvasRenderingContext2D) => {
++    c.beginPath();
++    c.rect(0, regionYMin, pw, bandHeight);
++    c.clip();
++  };
+ 
+   const cx = garX + garW / 2;
+   const cy = garY + garH / 2;
+ 
+   // ── Pass 1: garment with shadow ───────────────────────────
+   ctx.save();
++  setBodyRegionClip(ctx);
+   ctx.translate(cx, cy);
+   ctx.rotate(tiltAngle);
+   if (activeInset > 0) setTrapClip(ctx);
+   ctx.shadowColor   = "rgba(0,0,0,0.20)";
+   ctx.shadowBlur    = 14;
+   ctx.shadowOffsetY = 5;
+   ctx.globalAlpha   = 0.93;
+   ctx.drawImage(garmentCanvas, -garW / 2, -garH / 2, garW, garH);
+   ctx.restore();
+ 
+   // ── Pass 2: multiply blend — photo lighting bleeds through ─
+   // Build an offscreen canvas where the person photo is masked by the
+   // garment's own alpha channel. This ensures only pixels that are
+   // actually covered by the garment (not transparent background areas)
+   // receive the lighting tint, avoiding erroneous darkening of the
+   // person photo that shows through transparent garment edges.
+   try {
+     const lit = document.createElement("canvas");
+     lit.width  = garmentCanvas.width;
+     lit.height = garmentCanvas.height;
+     const lCtx = lit.getContext("2d")!;
+ 
+     // Draw person photo cropped to the garment area and scaled to garment canvas size
+     lCtx.drawImage(
+       person,
+       garX, garY, garW, garH,         // source region (garment area in photo)
+       0, 0, garmentCanvas.width, garmentCanvas.height,  // dest: full lit canvas
+     );
+ 
+     // Mask to garment alpha: keep only pixels where garment is opaque
+     lCtx.globalCompositeOperation = "destination-in";
+     lCtx.drawImage(garmentCanvas, 0, 0);
+     lCtx.globalCompositeOperation = "source-over";
+ 
+     // Composite the masked lit canvas onto the main output with multiply.
+     // Apply the same trapezoid clip as pass 1 so the lighting tint stays
+     // within the tapered silhouette and doesn't bleed into corners.
+     ctx.save();
++    setBodyRegionClip(ctx);
+     ctx.globalCompositeOperation = "multiply";
+     ctx.globalAlpha = 0.28;
+     ctx.translate(cx, cy);
+     ctx.rotate(tiltAngle);
+     if (activeInset > 0) setTrapClip(ctx);
+     ctx.drawImage(lit, -garW / 2, -garH / 2, garW, garH);
+     ctx.restore();
+   } catch {
+     // Silently skip lighting pass if offscreen canvas fails (e.g., tainted)
+   }
+ 
+   return out.toDataURL("image/jpeg", 0.93);
+ }
+ 
+ /**
+  * Client-side body restoration pass applied after the AI try-on result arrives.
+  *
+  * Problem: IDM-VTON regenerates the full image at a lower resolution (~768×1024),
+  * causing (1) face blur and (2) garment hem misalignment.
+  *
+  * Fix: Using pose keypoints, copy the face region from the original high-res
+  * photo back onto the AI result (fixes blur), and for tops garments also copy
+  * the lower body below the hip line (anchors the hem naturally).
+  *
+  * Both regions use feathered ellipse/gradient masks for smooth blending.
+@@ -458,50 +486,82 @@ async function restoreBodyRegions(
+ 
+       const maskC  = document.createElement("canvas");
+       maskC.width  = aiW; maskC.height = aiH;
+       const mCtx   = maskC.getContext("2d")!;
+ 
+       // Shift cut line 12% of image height below hipCY so the paste
+       // starts cleanly below the t-shirt hem rather than through it.
+       const cutY    = hipY_ai + aiH * 0.12;
+       const feather = aiH * 0.06;
+       const grad    = mCtx.createLinearGradient(0, cutY - feather, 0, cutY + feather);
+       grad.addColorStop(0, "rgba(255,255,255,0)");
+       grad.addColorStop(1, "rgba(255,255,255,1)");
+       mCtx.fillStyle = grad;
+       mCtx.fillRect(0, Math.max(0, cutY - feather), aiW, aiH);
+ 
+       pCtx.globalCompositeOperation = "destination-in";
+       pCtx.drawImage(maskC, 0, 0);
+       pCtx.globalCompositeOperation = "source-over";
+ 
+       ctx.drawImage(patch, 0, 0);
+     } catch (e) {
+       console.warn("[restore] lower body patch failed:", e);
+     }
+   }
+ 
++  // ── 3. UPPER BODY RESTORE (bottoms only) ────────────────────────
++  // If the AI model hallucinates bottom clothing on the torso, keep the
++  // original upper half and only allow AI edits on the lower half.
++  if (garmentType === "bottoms") {
++    try {
++      const patch  = document.createElement("canvas");
++      patch.width  = aiW; patch.height = aiH;
++      const pCtx   = patch.getContext("2d")!;
++      pCtx.drawImage(origImg, 0, 0, aiW, aiH);
++
++      const maskC  = document.createElement("canvas");
++      maskC.width  = aiW; maskC.height = aiH;
++      const mCtx   = maskC.getContext("2d")!;
++
++      const splitY  = aiH * 0.50;
++      const feather = aiH * 0.06;
++      const grad    = mCtx.createLinearGradient(0, splitY - feather, 0, splitY + feather);
++      grad.addColorStop(0, "rgba(255,255,255,1)");
++      grad.addColorStop(1, "rgba(255,255,255,0)");
++      mCtx.fillStyle = grad;
++      mCtx.fillRect(0, 0, aiW, Math.min(aiH, splitY + feather));
++
++      pCtx.globalCompositeOperation = "destination-in";
++      pCtx.drawImage(maskC, 0, 0);
++      pCtx.globalCompositeOperation = "source-over";
++
++      ctx.drawImage(patch, 0, 0);
++    } catch (e) {
++      console.warn("[restore] upper body patch failed:", e);
++    }
++  }
++
+   try {
+     return out.toDataURL("image/jpeg", 0.93);
+   } catch {
+     // Canvas tainted (CORS) — return original AI URL unchanged
+     console.warn("[restore] canvas tainted — skipping restoration");
+     return aiResultUrl;
+   }
+ }
+ 
+ /* ════════════════════════════════════════════════════════════ */
+ export default function TryOn() {
+   const [, setLocation] = useLocation();
+   const [step, setStep] = useState<1 | 2>(1);
+ 
+   /* ── profile ── */
+   const [gender,       setGender]       = useState<Gender>("man");
+   const [height,       setHeight]       = useState(170);
+   const [weight,       setWeight]       = useState(70);
+   const [size,         setSize]         = useState<Size>("M");
+   const [waistSize,    setWaistSize]    = useState(32);
+   const [skinTone,     setSkinTone]     = useState("medium");
+   const [uploadedPhoto, setUploadedPhoto] = useState<string | null>(null);
+   const [photoError,    setPhotoError]    = useState<string | null>(null);
+ 
+   /* ── outfit state ── */
+@@ -540,100 +600,104 @@ export default function TryOn() {
+     if (!previewOpen) { setZoom(1); setPan({ x: 0, y: 0 }); }
+   }, [previewOpen]);
+ 
+   /* Clear stale AI result when garment selection changes */
+   useEffect(() => {
+     selectedIdRef.current = selectedId;
+     setAiResultUrl(null);
+     setTryOnMode("canvas");
+   }, [selectedId]);
+ 
+   /* Elapsed-time ticker while AI is generating */
+   useEffect(() => {
+     if (aiLoading) {
+       setElapsed(0);
+       timerRef.current = setInterval(() => setElapsed(s => s + 1), 1000);
+     } else {
+       if (timerRef.current) clearInterval(timerRef.current);
+     }
+     return () => { if (timerRef.current) clearInterval(timerRef.current); };
+   }, [aiLoading]);
+ 
+   /* ── garment cache: Map<id, processed canvas> ── */
+   const cache     = useRef<Map<number, HTMLCanvasElement>>(new Map());
+   const [cacheReady, setCacheReady] = useState(false);
+ 
++  const toClothingTypePayload = (type: GarmentType): ClothingTypePayload =>
++    type === "bottoms" ? "bottom" : "top";
++
+   /* Preload & process all garments once on mount */
+   useEffect(() => {
+     Promise.allSettled(
+       GARMENTS.map(g =>
+         processGarment(g.image)
+           .then(c => cache.current.set(g.id, c))
+           .catch(err => console.warn("[preload] garment", g.id, "failed:", err.message))
+       )
+     ).finally(() => setCacheReady(true));
+   }, []);
+ 
+   /* Run pose detection whenever a new photo is uploaded */
+   useEffect(() => {
+     if (!uploadedPhoto) {
+       setPoseRegions(null);
+       setPoseStatus("idle");
+       return;
+     }
+     setPoseStatus("detecting");
+     setPoseDetecting(true);
+ 
+     const img = new Image();
+     img.onload = () => {
+       detectPoseRegions(img)
+         .then(regions => {
+           setPoseRegions(regions);
+           setPoseStatus(regions.detected ? "done" : "fallback");
+         })
+         .catch(() => {
+           setPoseRegions(null);
+           setPoseStatus("fallback");
+         })
+         .finally(() => setPoseDetecting(false));
+     };
+     img.onerror = () => {
+       setPoseDetecting(false);
+       setPoseStatus("fallback");
+     };
+     img.src = uploadedPhoto;
+   }, [uploadedPhoto]);
+ 
+   /* Auto-composite whenever photo, garment, cache, or pose regions change */
+   const doComposite = useCallback(async (
+     photo: string,
+     garmentId: number,
+     regions: PoseRegions | null,
+   ) => {
+     const garmentCanvas = cache.current.get(garmentId);
+     if (!garmentCanvas) return;
+     const g = GARMENTS.find(x => x.id === garmentId)!;
++    console.log("[tryon] composite garment type:", g.type, "id:", g.id, "name:", g.name);
+     setCompositing(true);
+     try {
+       const result = await composite(photo, garmentCanvas, g.type, regions);
+       setTryOnUrl(result);
+       setTryOnMode("canvas");
+     } catch (err: any) {
+       console.warn("[composite] failed:", err?.message ?? String(err));
+       setTryOnUrl(photo);
+     } finally {
+       setCompositing(false);
+     }
+   }, []);
+ 
+   useEffect(() => {
+     if (uploadedPhoto && cacheReady && !poseDetecting) {
+       doComposite(uploadedPhoto, selectedId, poseRegions);
+     } else if (!uploadedPhoto) {
+       setTryOnUrl(null);
+     }
+   }, [uploadedPhoto, selectedId, cacheReady, poseDetecting, poseRegions, doComposite]);
+ 
+   const garment    = GARMENTS.find(g => g.id === selectedId)!;
+   const fallbackUrl = gender === "man" ? garment.fallbackM : garment.fallbackF;
+   const bmi         = weight / Math.pow(height / 100, 2);
+ 
+@@ -650,129 +714,133 @@ export default function TryOn() {
+       return;
+     }
+ 
+     const r = new FileReader();
+     r.onload = e => {
+       const dataUrl = e.target?.result as string;
+       // Detect unknown binary type that browsers also can't render
+       if (dataUrl.startsWith("data:application/octet-stream")) {
+         setPhotoError("This photo format isn't supported. Please upload a JPEG or PNG file.");
+         return;
+       }
+       cb(dataUrl);
+     };
+     r.readAsDataURL(file);
+   }
+ 
+   /* ── AI photorealistic try-on ── */
+   async function runAiTryOn() {
+     if (!uploadedPhoto) return;
+     setAiLoading(true);
+     setAiError(null);
+     setBillingError(false);
+ 
+     try {
+       const g = GARMENTS.find(x => x.id === selectedId)!;
++      const clothingType = toClothingTypePayload(g.type);
++      console.log("[tryon] AI request garment type:", g.type, "payload type:", clothingType, "id:", g.id, "name:", g.name);
+ 
+       // Compress person photo — send at full natural size but max 1024px for quality
+       const compressed = await new Promise<string>(resolve => {
+         const img = new Image();
+         img.onload = () => {
+           const scale = Math.min(1, 1024 / Math.max(img.width, img.height));
+           const c = document.createElement("canvas");
+           c.width  = Math.round(img.width  * scale);
+           c.height = Math.round(img.height * scale);
+           c.getContext("2d")!.drawImage(img, 0, 0, c.width, c.height);
+           resolve(c.toDataURL("image/jpeg", 0.92));
+         };
+         img.src = uploadedPhoto;
+       });
+ 
+       // Send the raw garment product image (white background) to Replicate.
+       // IDM-VTON is trained on flat product photos — sending a transparent-background
+       // garment causes it to lose clothing boundaries and distort the body shape.
+       const garmentResp = await fetch(g.image);
+       const garmentBlob = await garmentResp.blob();
+       const garmentBase64 = await new Promise<string>((res, rej) => {
+         const fr = new FileReader();
+         fr.onload  = () => res(fr.result as string);
+         fr.onerror = rej;
+         fr.readAsDataURL(garmentBlob);
+       });
+ 
+-      // Build a torso mask from pose keypoints so IDM-VTON knows exactly
+-      // which region to replace, eliminating the original-clothing ghost.
+-      // White = torso area (shoulders → hips, 20% outward padding).
+-      // Black = everything else. Only generated when pose was detected.
++      // Build a body-region mask from pose keypoints so IDM-VTON knows exactly
++      // which region to replace, eliminating original-clothing ghosting.
++      // White = replace area. Black = preserve area.
++      // tops    → shoulders/torso region
++      // bottoms → hip/leg region
+       let garmentMaskImage: string | undefined;
+-      if (poseRegions?.detected && poseRegions.tops) {
+-        const t = poseRegions.tops;
++      const region = g.type === "bottoms" ? poseRegions?.bottoms : poseRegions?.tops;
++      if (poseRegions?.detected && region) {
+         const refImg = await loadImage(uploadedPhoto);
+         const origW  = refImg.naturalWidth  || refImg.width  || 768;
+         const origH  = refImg.naturalHeight || refImg.height || 1024;
+         const sc     = Math.min(1, 1024 / Math.max(origW, origH));
+         const mW     = Math.round(origW * sc);
+         const mH     = Math.round(origH * sc);
+ 
+         const mc   = document.createElement("canvas");
+         mc.width   = mW; mc.height = mH;
+         const mCtx = mc.getContext("2d")!;
+ 
+-        // Black background (preserve everywhere outside torso)
++        // Black background (preserve everywhere outside selected garment region)
+         mCtx.fillStyle = "#000";
+         mCtx.fillRect(0, 0, mW, mH);
+ 
+-        // White filled torso rectangle scaled to match the compressed image
+-        const mx = Math.max(0,  t.x * sc);
+-        const my = Math.max(0,  t.y * sc);
+-        const mw = Math.min(mW - mx, t.w * sc);
+-        const mh = Math.min(mH - my, t.h * sc);
++        // White filled region rectangle scaled to match the compressed image
++        const mx = Math.max(0,  region.x * sc);
++        const my = Math.max(0,  region.y * sc);
++        const mw = Math.min(mW - mx, region.w * sc);
++        const mh = Math.min(mH - my, region.h * sc);
+ 
+         if (mw > 0 && mh > 0) {
+           const r  = Math.min(mw, mh) * 0.08;  // slight rounding
+           mCtx.fillStyle = "#fff";
+           mCtx.beginPath();
+           mCtx.roundRect(mx, my, mw, mh, r);
+           mCtx.fill();
+           garmentMaskImage = mc.toDataURL("image/png");
+-          console.log("[mask] torso mask generated:", Math.round(mw), "×", Math.round(mh), "within", mW, "×", mH);
++          console.log("[mask] generated for", g.type, ":", Math.round(mw), "×", Math.round(mh), "within", mW, "×", mH);
+         } else {
+           // Degenerate keypoints — skip mask (model falls back to auto-detect)
+-          console.warn("[mask] degenerate torso geometry, skipping mask");
++          console.warn("[mask] degenerate geometry for", g.type, "skipping mask");
+         }
+       }
+ 
+       const ctrl  = new AbortController();
+       const timer = setTimeout(() => ctrl.abort(), 130_000);
+       const resp  = await fetch("/api/tryon", {
+         method: "POST",
+         headers: { "Content-Type": "application/json" },
+         signal: ctrl.signal,
+         body: JSON.stringify({
++          clothingType,
+           personImage:  compressed,
+           garmentImage: garmentBase64,
+-          garmentName:  `${g.name}, size ${size}${g.type === "bottoms" ? `, waist ${waistSize}in` : ""}, for a ${height} cm ${weight} kg ${gender}`,
++          garmentName:  `${g.name}, ${clothingType} wear, size ${size}${g.type === "bottoms" ? `, waist ${waistSize}in` : ""}, for a ${height} cm ${weight} kg ${gender}`,
+           ...(garmentMaskImage ? { garmentMaskImage } : {}),
+         }),
+       }).finally(() => clearTimeout(timer));
+ 
+       const data = await resp.json();
+ 
+       if (resp.status === 402) { setBillingError(true); return; }
+       if (!resp.ok) throw new Error(data.error || "AI generation failed");
+ 
+       // Apply client-side body restoration (face sharpness + hem alignment)
+       setAiLoading(false);
+       setAiEnhancing(true);
+       let finalUrl = data.resultUrl;
+       try {
+         finalUrl = await restoreBodyRegions(
+           data.resultUrl,
+           uploadedPhoto,
+           poseRegions,
+           g.type,
+         );
+       } catch (e) {
+         console.warn("[enhance] body restore failed, using raw result:", e);
+         finalUrl = data.resultUrl;
+       } finally {
+         setAiEnhancing(false);
+@@ -1159,71 +1227,76 @@ export default function TryOn() {
+             )}
+ 
+             {/* Cache loading bar (only while initial preload is in progress) */}
+             {!cacheReady && (
+               <div className="mx-4 mt-2 shrink-0">
+                 <div className="h-1 rounded-full bg-border overflow-hidden">
+                   <div className="h-full bg-primary rounded-full animate-pulse w-3/4" />
+                 </div>
+                 <p className="text-[10px] text-muted-foreground mt-1 text-center">Preloading outfit images…</p>
+               </div>
+             )}
+ 
+             {/* Outfit picker */}
+             <div className="shrink-0 mt-2 px-4">
+               <div className="flex items-center justify-between mb-2">
+                 <h3 className="text-sm font-semibold">Pick an Outfit</h3>
+                 <span data-testid="text-garment-count" className="text-xs text-muted-foreground">
+                   {GARMENTS.filter(g => g.type === garmentFilter).length} items
+                 </span>
+               </div>
+ 
+               {/* Tops / Bottoms filter toggle */}
+               <div className="flex gap-1.5 mb-2.5">
+                 {(["tops", "bottoms"] as GarmentType[]).map(cat => (
+                   <button key={cat} onClick={() => {
++                    console.log("[ui] garment filter selected:", cat);
+                     setGarmentFilter(cat);
+                     const current = GARMENTS.find(g => g.id === selectedId);
+                     if (current?.type !== cat) {
+                       const first = GARMENTS.find(g => g.type === cat);
+                       if (first) setSelectedId(first.id);
+                     }
+                   }}
+                     data-testid={`button-filter-${cat}`}
+                     className={`flex-1 h-8 rounded-full text-xs font-semibold border-2 transition-all
+                       ${garmentFilter === cat
+                         ? "bg-primary border-primary text-white shadow-sm"
+                         : "bg-background border-border/50 text-muted-foreground"}`}>
+                     {cat === "tops" ? "Tops" : "Bottoms"}
+                   </button>
+                 ))}
+               </div>
+ 
+               <div className="flex gap-2.5 overflow-x-auto hide-scrollbar -mx-4 px-4 pb-2">
+                 {GARMENTS.filter(g => g.type === garmentFilter).map(g => (
+                   <div key={g.id}
+-                    onClick={() => { setSelectedId(g.id); setGarmentFilter(g.type); }}
++                    onClick={() => {
++                      console.log("[ui] garment selected:", g.name, "type:", g.type, "id:", g.id);
++                      setSelectedId(g.id);
++                      setGarmentFilter(g.type);
++                    }}
+                     data-testid={`card-garment-${g.id}`}
+                     className={`relative flex-shrink-0 w-[68px] rounded-2xl overflow-hidden cursor-pointer border-2 transition-all active:scale-95
+                       ${selectedId === g.id ? "border-primary shadow-md shadow-primary/25 scale-105" : "border-border/40"}`}
+                     style={{ aspectRatio: "3/4" }}>
+                     <img src={gender === "man" ? g.fallbackM : g.fallbackF}
+                       alt={g.name}
+                       className="w-full h-full object-cover object-top bg-secondary/30" />
+                     {g.tag && (
+                       <div className="absolute top-1 left-1 bg-primary text-white text-[7px] font-bold px-1 py-0.5 rounded-full">
+                         {g.tag}
+                       </div>
+                     )}
+                     {selectedId === g.id && (
+                       <div className="absolute top-1 right-1 bg-primary rounded-full p-0.5">
+                         <Check size={9} className="text-white" />
+                       </div>
+                     )}
+                     <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent px-1.5 py-1.5">
+                       <p className="text-white text-[8px] font-semibold truncate">{g.name}</p>
+                       <p className="text-white/70 text-[8px]">{g.price}</p>
+                     </div>
+                   </div>
+                 ))}
+               </div>
+             </div>
