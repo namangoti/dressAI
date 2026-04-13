@@ -13,6 +13,7 @@ import {
   Share2,
   LogOut,
 } from "lucide-react";
+import { useAuth } from "@/lib/authContext";
 
 function SectionRow({
   icon,
@@ -68,11 +69,19 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export default function Profile() {
+  const { user, logout } = useAuth();
   const appVersion = "1.0.0";
 
   function handleShare() {
     if (navigator.share) {
-      navigator.share({ title: "Myntra Try-On", url: window.location.origin });
+      navigator.share({ title: "DressAI Try-On", url: window.location.origin });
+    }
+  }
+
+  function handleDeleteAccount() {
+    if (window.confirm("Are you sure? This will permanently delete your account.")) {
+      localStorage.removeItem("dressai-users");
+      logout();
     }
   }
 
@@ -94,8 +103,8 @@ export default function Profile() {
               <Crown size={13} />
             </div>
           </div>
-          <h2 className="text-xl font-bold">Alex Johnson</h2>
-          <p className="text-sm text-muted-foreground">alex@example.com</p>
+          <h2 className="text-xl font-bold">{user?.name ?? "Guest"}</h2>
+          <p className="text-sm text-muted-foreground">{user?.email ?? ""}</p>
         </div>
 
         {/* Premium card */}
@@ -151,6 +160,7 @@ export default function Profile() {
             icon={<Trash2 size={17} />}
             label="Delete Account"
             destructive
+            onClick={handleDeleteAccount}
           />
         </Section>
 
@@ -184,6 +194,7 @@ export default function Profile() {
           data-testid="button-logout"
           variant="ghost"
           className="w-full rounded-full h-12 text-destructive gap-2"
+          onClick={logout}
         >
           <LogOut size={17} />
           Log Out

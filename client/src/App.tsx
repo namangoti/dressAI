@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { CartProvider } from "@/lib/cartContext";
+import { AuthProvider, useAuth } from "@/lib/authContext";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
 import TryOn from "@/pages/TryOn";
@@ -12,6 +13,7 @@ import Profile from "@/pages/Profile";
 import Cart from "@/pages/Cart";
 import Catalog from "@/pages/Catalog";
 import ProductDetail from "@/pages/ProductDetail";
+import Login from "@/pages/Login";
 
 function Router() {
   return (
@@ -28,14 +30,22 @@ function Router() {
   );
 }
 
+function AuthGate() {
+  const { user } = useAuth();
+  if (!user) return <Login />;
+  return <Router />;
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <CartProvider>
-          <Toaster />
-          <Router />
-        </CartProvider>
+        <AuthProvider>
+          <CartProvider>
+            <Toaster />
+            <AuthGate />
+          </CartProvider>
+        </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );
