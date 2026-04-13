@@ -608,8 +608,15 @@ export default function TryOn() {
   }, []);
 
   /* ── outfit state ── */
-  const [garmentFilter, setGarmentFilter] = useState<GarmentType>("tops");
-  const [selectedId,  setSelectedId]  = useState(1);
+  const [garmentFilter, setGarmentFilter] = useState<GarmentType>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return (params.get("filter") as GarmentType) || "tops";
+  });
+  const [selectedId,  setSelectedId]  = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const gId = parseInt(params.get("garment") || "0");
+    return gId && GARMENTS.find(g => g.id === gId) ? gId : 1;
+  });
   const [saved,       setSaved]       = useState(false);
   const [tryOnUrl,    setTryOnUrl]    = useState<string | null>(null);
   const [tryOnMode,   setTryOnMode]   = useState<"canvas" | "ai">("canvas");

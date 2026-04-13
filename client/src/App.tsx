@@ -10,6 +10,8 @@ import TryOn from "@/pages/TryOn";
 import Wardrobe from "@/pages/Wardrobe";
 import Profile from "@/pages/Profile";
 import Cart from "@/pages/Cart";
+import Catalog from "@/pages/Catalog";
+import ProductDetail from "@/pages/ProductDetail";
 
 function Router() {
   return (
@@ -19,6 +21,8 @@ function Router() {
       <Route path="/wardrobe" component={Wardrobe} />
       <Route path="/profile" component={Profile} />
       <Route path="/cart" component={Cart} />
+      <Route path="/catalog" component={Catalog} />
+      <Route path="/product/:id" component={ProductDetail} />
       <Route component={NotFound} />
     </Switch>
   );

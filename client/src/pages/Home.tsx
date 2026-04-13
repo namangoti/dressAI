@@ -391,16 +391,20 @@ export default function Home() {
                 
                 {/* Categories Row */}
                 <div className="flex gap-4 overflow-x-auto hide-scrollbar pb-1">
-                  {data.categories.map((cat, i) => (
-                    <div key={i} className="flex flex-col items-center gap-1.5 shrink-0">
-                      <div className={`w-16 h-16 rounded-[18px] overflow-hidden border ${i === 0 ? 'border-primary p-0.5' : 'border-border/50'}`}>
-                        <div className="w-full h-full rounded-2xl overflow-hidden bg-secondary">
-                          <img src={cat.img} alt={cat.name} className="w-full h-full object-cover" />
+                  {data.categories.map((cat, i) => {
+                    const slug = cat.name.toLowerCase().replace(/\s+&\s+/g, "-").replace(/\s+/g, "-");
+                    return (
+                      <Link key={i} href={`/catalog?category=${slug}`} className="flex flex-col items-center gap-1.5 shrink-0"
+                        data-testid={`link-cat-circle-${slug}`}>
+                        <div className={`w-16 h-16 rounded-[18px] overflow-hidden border ${i === 0 ? 'border-primary p-0.5' : 'border-border/50'}`}>
+                          <div className="w-full h-full rounded-2xl overflow-hidden bg-secondary">
+                            <img src={cat.img} alt={cat.name} className="w-full h-full object-cover" />
+                          </div>
                         </div>
-                      </div>
-                      <span className={`text-[10px] font-medium ${i === 0 ? 'text-primary' : 'text-foreground'}`}>{cat.name}</span>
-                    </div>
-                  ))}
+                        <span className={`text-[10px] font-medium ${i === 0 ? 'text-primary' : 'text-foreground'}`}>{cat.name}</span>
+                      </Link>
+                    );
+                  })}
                 </div>
 
                 <section>
@@ -445,14 +449,18 @@ export default function Home() {
 
                   {/* Product Categories Grid */}
                   <div className="grid grid-cols-4 gap-x-3 gap-y-6">
-                    {data.grid.map((item, i) => (
-                      <Link key={i} href="/try-on" className="flex flex-col items-center gap-1.5 cursor-pointer group">
-                        <div className="w-full aspect-[3/4] rounded-2xl overflow-hidden bg-gradient-to-b from-blue-50/50 to-pink-50/50 border border-border/40 p-1 transition-transform group-hover:scale-95">
-                          <img src={item.img} alt={item.name} className="w-full h-full object-cover rounded-xl mix-blend-multiply" />
-                        </div>
-                        <span className="text-[10px] font-medium text-center leading-tight truncate w-full px-1">{item.name}</span>
-                      </Link>
-                    ))}
+                    {data.grid.map((item, i) => {
+                      const slug = item.name.toLowerCase().replace(/\s+&\s+/g, "-").replace(/\s+/g, "-");
+                      return (
+                        <Link key={i} href={`/catalog?category=${slug}`} className="flex flex-col items-center gap-1.5 cursor-pointer group"
+                          data-testid={`link-category-${slug}`}>
+                          <div className="w-full aspect-[3/4] rounded-2xl overflow-hidden bg-gradient-to-b from-blue-50/50 to-pink-50/50 border border-border/40 p-1 transition-transform group-hover:scale-95">
+                            <img src={item.img} alt={item.name} className="w-full h-full object-cover rounded-xl mix-blend-multiply" />
+                          </div>
+                          <span className="text-[10px] font-medium text-center leading-tight truncate w-full px-1">{item.name}</span>
+                        </Link>
+                      );
+                    })}
                   </div>
                 </section>
               </TabsContent>

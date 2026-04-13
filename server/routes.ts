@@ -81,7 +81,7 @@ export async function registerRoutes(
                 garment_des:     garmentName || (clothingType === "bottom" ? "bottom wear pants or jeans" : "top wear t-shirt or shirt"),
                 is_checked:      true,
                 is_checked_crop: true,
-                denoise_steps:   20,
+                denoise_steps:   15,
                 seed:            Math.floor(Math.random() * 2147483647),
                 // Explicit torso mask removes original clothing (blazer/jacket ghost).
                 // Only included when pose detection succeeded on the client.

@@ -12,31 +12,40 @@ A mobile-first virtual try-on eCommerce app (Myntra-style) where users upload a 
 ## Key Features
 - **Instant canvas try-on**: garment PNGs preloaded/cached, composited onto uploaded photo client-side
 - **Pose-based body alignment**: TensorFlow.js MoveNet detects 17 body keypoints; clothing is dynamically positioned and scaled to match detected shoulders, torso, hips, and ankles — not fixed coordinates
-- **AI photorealistic generation**: optional `Generate AI Image` button calls Replicate API (`cuuupid/idm-vton`) for a realistic result (requires Replicate billing credits)
+- **AI photorealistic generation**: optional `Generate AI Image` button calls Replicate API (`cuuupid/idm-vton`) for a realistic result (requires Replicate billing credits); `denoise_steps=15` for faster generation
 - **HEIC/unsupported format detection**: clear error messages for iPhone HEIC files
-- **Garment catalogue**: 10 items — 6 tops (T-shirts) + 4 bottoms (Classic Blue Jeans, Black Slim Jeans, Blue Denim Jeans, Khaki Chinos); Tops/Bottoms filter toggle in the picker UI
+- **Garment catalogue**: 10 try-on-enabled items (6 tops, 4 bottoms) + 14 display-only products across shirts, shoes, dresses, etc.
+
+## Product Browsing Flow
+- **Home → Category**: grid items and category circles link to `/catalog?category=<slug>` (e.g., `/catalog?category=jeans`)
+- **Catalog page**: `/catalog?category=<slug>` — filtered product grid with sort options (Popular, Price Low/High, Newest)
+- **Product detail**: `/product/:id` — full product info, size picker, Add to Cart, "Try On" button (if try-on-enabled)
+- **Try On preselection**: Product Detail "Try On" navigates to `/try-on?garment=<id>&filter=<tops|bottoms>` which auto-selects the garment
 
 ## Shopping Cart
 - **Client-side cart**: React context (`client/src/lib/cartContext.tsx`) with localStorage persistence
 - **Cart page**: `/cart` route — shows items, quantity controls, remove, place order flow
-- **Add to Cart**: button on TryOn page adds current garment (with selected size) to cart; shows toast confirmation
+- **Add to Cart**: button on TryOn page and ProductDetail page adds current garment (with selected size) to cart; shows toast confirmation
 - **Cart badge**: bottom nav shows item count badge on the Cart icon
 - **Order flow**: Place Order clears cart and shows confirmation screen
 
 ## File Structure
 ```
 client/src/
-  pages/TryOn.tsx        — main virtual try-on component
-  pages/Home.tsx         — landing page
-  pages/Cart.tsx         — shopping cart page
-  lib/poseDetector.ts    — TF.js MoveNet pose detection utility
-  lib/cartContext.tsx     — cart React context + localStorage persistence
-  assets/images/         — garment PNG assets
+  pages/TryOn.tsx          — main virtual try-on component
+  pages/Home.tsx           — landing page with tab navigation
+  pages/Catalog.tsx        — category product listing page
+  pages/ProductDetail.tsx  — individual product detail page
+  pages/Cart.tsx           — shopping cart page
+  lib/garments.ts          — shared product catalog (24 items, category mappings)
+  lib/poseDetector.ts      — TF.js MoveNet pose detection utility
+  lib/cartContext.tsx       — cart React context + localStorage persistence
+  assets/images/           — garment PNG assets
   components/layout/MobileLayout.tsx — bottom nav with cart badge
 
 server/
   index.ts               — Express server setup (20MB body limit)
-  routes.ts              — /api/tryon Replicate proxy endpoint
+  routes.ts              — /api/tryon Replicate proxy endpoint (denoise_steps=15)
   storage.ts             — Drizzle storage interface
 
 shared/
