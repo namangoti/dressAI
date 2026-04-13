@@ -639,11 +639,11 @@ export default function TryOn() {
   /* ── profile ── */
   const [gender,       setGender]       = useState<Gender>("man");
   const [height,       setHeight]       = useState(170);
+  const [heightUnit,   setHeightUnit]   = useState<"cm" | "ft">("cm");
   const [weight,       setWeight]       = useState(70);
   const [clothingSize, setClothingSize] = useState<Size>("M");
   const [shoeSize,     setShoeSize]     = useState("8");
   const [waistSize,    setWaistSize]    = useState(32);
-  const [skinTone,     setSkinTone]     = useState("medium");
   const [uploadedPhoto, setUploadedPhoto] = useState<string | null>(() => {
     try {
       const stored = localStorage.getItem("dressai-photo");
@@ -1092,12 +1092,32 @@ export default function TryOn() {
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1">
                     <Ruler size={12} /> Height
                   </p>
-                  <span className="text-sm font-bold text-primary">{height} cm</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-primary">
+                      {heightUnit === "cm"
+                        ? `${height} cm`
+                        : (() => { const i = height / 2.54; const ft = Math.floor(i / 12); const inch = Math.round(i % 12); return `${ft}'${inch}"`; })()}
+                    </span>
+                    <div className="flex rounded-lg overflow-hidden border border-border text-[10px] font-bold">
+                      <button
+                        data-testid="button-unit-cm"
+                        onClick={() => setHeightUnit("cm")}
+                        className={`px-2 py-0.5 transition-colors ${heightUnit === "cm" ? "bg-primary text-white" : "text-muted-foreground"}`}
+                      >cm</button>
+                      <button
+                        data-testid="button-unit-ft"
+                        onClick={() => setHeightUnit("ft")}
+                        className={`px-2 py-0.5 transition-colors ${heightUnit === "ft" ? "bg-primary text-white" : "text-muted-foreground"}`}
+                      >ft</button>
+                    </div>
+                  </div>
                 </div>
                 <input type="range" min={140} max={210} value={height} onChange={e => setHeight(+e.target.value)}
                   className="w-full accent-primary" data-testid="slider-height" />
                 <div className="flex justify-between text-[10px] text-muted-foreground mt-0.5">
-                  <span>140 cm</span><span>175 cm</span><span>210 cm</span>
+                  {heightUnit === "cm"
+                    ? <><span>140 cm</span><span>175 cm</span><span>210 cm</span></>
+                    : <><span>4'7"</span><span>5'9"</span><span>6'11"</span></>}
                 </div>
               </section>
 
@@ -1150,17 +1170,6 @@ export default function TryOn() {
                 </div>
               </section>
 
-              {/* Skin tone */}
-              <section>
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Skin Tone</p>
-                <div className="flex gap-3">
-                  {SKIN_TONES.map(t => (
-                    <button key={t.key} onClick={() => setSkinTone(t.key)} data-testid={`button-skintone-${t.key}`}
-                      className={`w-9 h-9 rounded-full border-4 transition-all ${skinTone === t.key ? "border-primary scale-110 shadow-md" : "border-border"}`}
-                      style={{ backgroundColor: t.color }} />
-                  ))}
-                </div>
-              </section>
             </div>
 
             <div className="px-5 pb-6 shrink-0">

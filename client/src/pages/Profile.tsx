@@ -1,7 +1,6 @@
 import { useRef, useState } from "react";
 import MobileLayout from "@/components/layout/MobileLayout";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   ChevronRight,
   Crown,
@@ -132,12 +131,16 @@ export default function Profile() {
               className="relative block rounded-full focus:outline-none"
               aria-label="Change profile photo"
             >
-              <Avatar style={{ width: 88, height: 88 }} className="border-4 border-background shadow-lg">
-                <AvatarImage src={avatarUrl || undefined} alt="Profile" className="object-cover" />
-                <AvatarFallback className="bg-secondary text-2xl font-bold text-foreground">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
+              <div
+                className="rounded-full border-4 border-background shadow-lg overflow-hidden flex items-center justify-center bg-secondary"
+                style={{ width: 88, height: 88 }}
+              >
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-2xl font-bold text-foreground select-none">{initials}</span>
+                )}
+              </div>
 
               {/* Camera badge */}
               <span className="absolute bottom-0 right-0 bg-primary text-white w-7 h-7 rounded-full flex items-center justify-center border-2 border-background shadow">
