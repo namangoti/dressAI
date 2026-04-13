@@ -15,6 +15,7 @@ interface AuthContextValue {
   user: User | null;
   login: (email: string, password: string) => string | null;
   signup: (name: string, email: string, password: string) => string | null;
+  socialLogin: (provider: "google" | "apple") => void;
   logout: () => void;
 }
 
@@ -71,13 +72,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return null;
   }
 
+  function socialLogin(provider: "google" | "apple") {
+    const providerNames = { google: "Google User", apple: "Apple User" };
+    const providerEmails = { google: "user@gmail.com", apple: "user@icloud.com" };
+    const loggedIn: User = { name: providerNames[provider], email: providerEmails[provider] };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(loggedIn));
+    setUser(loggedIn);
+  }
+
   function logout() {
     localStorage.removeItem(STORAGE_KEY);
     setUser(null);
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, login, signup, socialLogin, logout }}>
       {children}
     </AuthContext.Provider>
   );
