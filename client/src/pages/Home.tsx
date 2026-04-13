@@ -14,8 +14,6 @@ import mensShirt from "@/assets/images/mens-shirt.png";
 import mensJeans from "@/assets/images/mens-jeans.png";
 import womensDress from "@/assets/images/womens-dress.png";
 import womensTop from "@/assets/images/womens-top.png";
-import kidsTshirt from "@/assets/images/kids-tshirt.png";
-import kidsDress from "@/assets/images/kids-dress.png";
 
 // Mock data for categories and grids
 const tabsData = {
@@ -32,8 +30,8 @@ const tabsData = {
       { name: "Jeans", img: mensJeans },
       { name: "Dresses", img: womensDress },
       { name: "Tops", img: womensTop },
-      { name: "Kids T-Shirts", img: kidsTshirt },
-      { name: "Kids Dresses", img: kidsDress },
+      { name: "Sneakers", img: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200&q=80" },
+      { name: "Formal Shoes", img: "https://images.unsplash.com/photo-1614252369475-531eba835eb1?w=200&q=80" },
       { name: "Basic T-Shirts", img: garment2 },
       { name: "Colorful Tees", img: garment4 },
     ]
@@ -77,24 +75,24 @@ const tabsData = {
       { name: "Skirts", img: "https://images.unsplash.com/photo-1583496661160-c588c4af5d85?w=200&q=80" },
     ]
   },
-  kids: {
+  shoes: {
     categories: [
-      { name: "Girls", img: "https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?w=150&q=80" },
-      { name: "Boys", img: "https://images.unsplash.com/photo-1519238382025-06b2db3c467a?w=150&q=80" },
-      { name: "Infants", img: "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=150&q=80" },
-      { name: "Teens", img: "https://images.unsplash.com/photo-1544778107-1e5f03da0ce5?w=150&q=80" },
-      { name: "Add-ons", img: "https://images.unsplash.com/photo-1560159828-5696e1a49f53?w=150&q=80" },
+      { name: "Sneakers", img: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=150&q=80" },
+      { name: "Formal", img: "https://images.unsplash.com/photo-1614252369475-531eba835eb1?w=150&q=80" },
+      { name: "Sports", img: "https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?w=150&q=80" },
+      { name: "Casual", img: "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=150&q=80" },
+      { name: "Sandals", img: "https://images.unsplash.com/photo-1603487742131-4160ec999306?w=150&q=80" },
     ],
-    bannerText: "40-80% OFF",
-    code: "KIDS80",
-    bannerImg: "https://images.unsplash.com/photo-1605518216938-7c31b7b14ad0?w=600&q=80",
+    bannerText: "FLAT 40% OFF",
+    code: "SHOES40",
+    bannerImg: "https://images.unsplash.com/photo-1556906781-9a412961c28c?w=600&q=80",
     grid: [
-      { name: "Party Wear", img: kidsDress },
-      { name: "T-Shirts", img: kidsTshirt },
-      { name: "Winter Wear", img: "https://images.unsplash.com/photo-1544778107-1e5f03da0ce5?w=200&q=80" },
-      { name: "Clothing Sets", img: "https://images.unsplash.com/photo-1519238382025-06b2db3c467a?w=200&q=80" },
-      { name: "Jeans", img: "https://images.unsplash.com/photo-1604134914101-72c6861cb7e5?w=200&q=80" },
-      { name: "Shorts", img: "https://images.unsplash.com/photo-1596230303867-b5cc55c0e1db?w=200&q=80" },
+      { name: "Running Shoes", img: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200&q=80" },
+      { name: "Casual Sneakers", img: "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=200&q=80" },
+      { name: "Formal Shoes", img: "https://images.unsplash.com/photo-1614252369475-531eba835eb1?w=200&q=80" },
+      { name: "Loafers", img: "https://images.unsplash.com/photo-1582897085656-c636d006a246?w=200&q=80" },
+      { name: "Sports Shoes", img: "https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?w=200&q=80" },
+      { name: "Sandals", img: "https://images.unsplash.com/photo-1603487742131-4160ec999306?w=200&q=80" },
     ]
   }
 };
@@ -385,7 +383,7 @@ export default function Home() {
               <TabsTrigger value="all" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none pb-2 px-2 font-medium text-muted-foreground">All</TabsTrigger>
               <TabsTrigger value="men" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none pb-2 px-2 font-medium text-muted-foreground">Men</TabsTrigger>
               <TabsTrigger value="women" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none pb-2 px-2 font-medium text-muted-foreground">Women</TabsTrigger>
-              <TabsTrigger value="kids" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none pb-2 px-2 font-medium text-muted-foreground">Kids</TabsTrigger>
+              <TabsTrigger value="shoes" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none pb-2 px-2 font-medium text-muted-foreground">Shoes</TabsTrigger>
             </TabsList>
 
             {Object.entries(tabsData).map(([tabKey, data]) => (

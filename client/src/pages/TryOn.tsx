@@ -577,8 +577,35 @@ export default function TryOn() {
   const [size,         setSize]         = useState<Size>("M");
   const [waistSize,    setWaistSize]    = useState(32);
   const [skinTone,     setSkinTone]     = useState("medium");
-  const [uploadedPhoto, setUploadedPhoto] = useState<string | null>(null);
+  const [uploadedPhoto, setUploadedPhoto] = useState<string | null>(() => {
+    try {
+      const stored = localStorage.getItem("dressai-photo");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.expiry && Date.now() < parsed.expiry) return parsed.data;
+        localStorage.removeItem("dressai-photo");
+      }
+    } catch {}
+    return null;
+  });
   const [photoError,    setPhotoError]    = useState<string | null>(null);
+
+  const persistPhoto = useCallback((dataUrl: string | null) => {
+    setUploadedPhoto(dataUrl); // eslint-disable-line
+    if (dataUrl) {
+      try {
+        const SIX_MONTHS_MS = 6 * 30 * 24 * 60 * 60 * 1000;
+        localStorage.setItem("dressai-photo", JSON.stringify({
+          data: dataUrl,
+          expiry: Date.now() + SIX_MONTHS_MS,
+        }));
+      } catch (e) {
+        console.warn("[photo] localStorage save failed (photo too large?):", e);
+      }
+    } else {
+      localStorage.removeItem("dressai-photo");
+    }
+  }, []);
 
   /* ── outfit state ── */
   const [garmentFilter, setGarmentFilter] = useState<GarmentType>("tops");
@@ -904,7 +931,7 @@ export default function TryOn() {
                       </p>
                       <p className="text-xs text-muted-foreground">Try-on updates instantly as you pick outfits</p>
                     </div>
-                    <button onClick={() => { setUploadedPhoto(null); setTryOnUrl(null); }}
+                    <button onClick={() => { persistPhoto(null); setTryOnUrl(null); }}
                       className="text-muted-foreground hover:text-destructive p-1">
                       <RotateCcw size={16} />
                     </button>
@@ -914,12 +941,12 @@ export default function TryOn() {
                     <label className="flex-1 flex items-center justify-center gap-1.5 h-12 rounded-2xl border-2 border-dashed border-primary/50 bg-primary/5 cursor-pointer text-sm font-semibold text-primary hover:bg-primary/10 transition-colors" data-testid="label-upload-photo">
                       <Camera size={16} /> Upload Photo
                       <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden"
-                        onChange={e => { const f = e.target.files?.[0]; if (f) readFile(f, setUploadedPhoto); }} />
+                        onChange={e => { const f = e.target.files?.[0]; if (f) readFile(f, persistPhoto); }} />
                     </label>
                     <label className="flex-1 flex items-center justify-center gap-1.5 h-12 rounded-2xl border-2 border-dashed border-border bg-secondary/30 cursor-pointer text-sm text-muted-foreground hover:bg-secondary/60 transition-colors" data-testid="label-camera-photo">
                       <ImageIcon size={16} /> Take Photo
                       <input type="file" accept="image/jpeg,image/png,image/webp" capture="user" className="hidden"
-                        onChange={e => { const f = e.target.files?.[0]; if (f) readFile(f, setUploadedPhoto); }} />
+                        onChange={e => { const f = e.target.files?.[0]; if (f) readFile(f, persistPhoto); }} />
                     </label>
                   </div>
                 )}
