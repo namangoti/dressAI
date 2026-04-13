@@ -1201,9 +1201,17 @@ export default function TryOn() {
               {tryOnUrl ? (
                 <img src={tryOnUrl} alt="Try-On"
                   className={`w-full h-full object-contain transition-opacity duration-200 ${compositing ? "opacity-60" : "opacity-100"}`} />
-              ) : (
+              ) : uploadedPhoto ? (
+                <img src={uploadedPhoto} alt="Your photo"
+                  className={`w-full h-full object-contain transition-opacity duration-200 ${compositing ? "opacity-60" : "opacity-100"}`} />
+              ) : fallbackUrl ? (
                 <img src={fallbackUrl} alt={garment?.name ?? "Model"}
                   className="w-full h-full object-cover object-top" />
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center gap-3 bg-muted/20">
+                  <Camera size={36} className="text-muted-foreground/40" />
+                  <p className="text-sm text-muted-foreground text-center px-6">Upload your photo in step 1 to see the try-on here</p>
+                </div>
               )}
 
               {/* Pose-detecting overlay */}
