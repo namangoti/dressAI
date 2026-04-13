@@ -249,23 +249,66 @@ async function composite(
     return out.toDataURL("image/jpeg", 0.93);
   }
 
+  /* ─── SHOES: per-foot placement (left shoe + right shoe mirrored) ─── */
+  if (type === "shoes") {
+    const garAR = garmentCanvas.width / garmentCanvas.height;
+
+    const drawOneShoe = (cx: number, bottomY: number, shoeW: number, flipH: boolean) => {
+      const shoeH = shoeW / garAR;
+      const shoeTopY = bottomY - shoeH;
+      ctx.save();
+      ctx.translate(cx, shoeTopY + shoeH / 2);
+      if (flipH) ctx.scale(-1, 1);
+      ctx.shadowColor   = "rgba(0,0,0,0.30)";
+      ctx.shadowBlur    = 10;
+      ctx.shadowOffsetY = 5;
+      ctx.globalAlpha   = 0.93;
+      ctx.drawImage(garmentCanvas, -shoeW / 2, -shoeH / 2, shoeW, shoeH);
+      ctx.restore();
+    };
+
+    const detected = poseRegions?.detected;
+    const aL = detected ? poseRegions!.ankleL : null;
+    const aR = detected ? poseRegions!.ankleR : null;
+    const shoulderSpan = poseRegions?.shoulderSpanPx ?? pw * 0.35;
+
+    if (aL && aR) {
+      /* pose-guided: one shoe per ankle */
+      const aSpan = Math.abs(aR.x - aL.x);
+      const shoeW = Math.max(aSpan * 1.10, shoulderSpan * 0.42);
+      /* shoe bottom = ankle + 12% of shoe height below the ankle joint */
+      const shoeH = shoeW / garAR;
+      const leftBottom  = aL.y + shoeH * 0.12;
+      const rightBottom = aR.y + shoeH * 0.12;
+      // left foot (normal orientation), right foot (mirrored)
+      drawOneShoe(aL.x, leftBottom,  shoeW, false);
+      drawOneShoe(aR.x, rightBottom, shoeW, true);
+      console.log("[composite] shoes per-foot: leftX=", Math.round(aL.x), "rightX=", Math.round(aR.x), "shoeW=", Math.round(shoeW));
+    } else {
+      /* fallback: symmetrical pair centred in image */
+      const shoeW = pw * 0.22;
+      const bottomY = ph * 0.92;
+      drawOneShoe(pw * 0.33, bottomY, shoeW, false);
+      drawOneShoe(pw * 0.67, bottomY, shoeW, true);
+      console.log("[composite] shoes fallback (no pose)");
+    }
+
+    return out.toDataURL("image/jpeg", 0.93);
+  }
+  /* ─── END SHOES ─────────────────────────────────────────────────── */
+
   let garX: number, garY: number, garW: number, garH: number;
 
   const region = poseRegions?.detected
-    ? (type === "tops" ? poseRegions.tops : type === "bottoms" ? poseRegions.bottoms : poseRegions.shoes)
+    ? (type === "bottoms" ? poseRegions.bottoms : poseRegions.tops)
     : null;
 
   const bodySplitY = ph * 0.5;
-  const regionYMin = type === "tops" ? 0 : type === "bottoms" ? bodySplitY : ph * 0.75;
+  const regionYMin = type === "tops" ? 0 : bodySplitY;
   const regionYMax = type === "tops" ? bodySplitY : ph;
 
   if (region) {
-    if (type === "shoes") {
-      garW = region.w;
-      garH = garW * (garmentCanvas.height / garmentCanvas.width);
-      garX = region.x;
-      garY = region.y + (region.h - garH) / 2;
-    } else if (type === "bottoms") {
+    if (type === "bottoms") {
       garH = region.h;
       garW = garH * (garmentCanvas.width / garmentCanvas.height);
       garX = region.x + (region.w - garW) / 2;
@@ -279,19 +322,12 @@ async function composite(
       garY = region.y + (region.h - garH) / 2;
     }
   } else {
-    if (type === "shoes") {
-      garY = ph * 0.82;
-      garW = pw * 0.40;
-      garH = garW * (garmentCanvas.height / garmentCanvas.width);
-      garX = (pw - garW) / 2;
-    } else {
-      const yStart = type === "tops"    ? ph * 0.14 : ph * 0.55;
-      const yEnd   = type === "bottoms" ? ph * 0.98 : ph * 0.62;
-      garH = yEnd - yStart;
-      garW = garH * (garmentCanvas.width / garmentCanvas.height);
-      garX = (pw - garW) / 2;
-      garY = yStart;
-    }
+    const yStart = type === "tops"    ? ph * 0.14 : ph * 0.55;
+    const yEnd   = type === "bottoms" ? ph * 0.98 : ph * 0.62;
+    garH = yEnd - yStart;
+    garW = garH * (garmentCanvas.width / garmentCanvas.height);
+    garX = (pw - garW) / 2;
+    garY = yStart;
   }
 
   const bandHeight = regionYMax - regionYMin;
@@ -308,9 +344,7 @@ async function composite(
   const MAX_TILT = 15 * Math.PI / 180;
   let tiltAngle = 0;
 
-  if (type === "shoes") {
-    tiltAngle = 0;
-  } else if (type === "tops" && poseRegions?.shoulderL && poseRegions?.shoulderR) {
+  if (type === "tops" && poseRegions?.shoulderL && poseRegions?.shoulderR) {
     const sLeft  = poseRegions.shoulderL.x <= poseRegions.shoulderR.x
       ? poseRegions.shoulderL : poseRegions.shoulderR;
     const sRight = poseRegions.shoulderL.x <= poseRegions.shoulderR.x
@@ -651,11 +685,11 @@ export default function TryOn() {
     const params = new URLSearchParams(window.location.search);
     const gId = parseInt(params.get("garment") || "0");
     const g = GARMENTS.find(x => x.id === gId);
-    const initial: OutfitSelections = { tops: 1, bottoms: null, shoes: null };
+    const initial: OutfitSelections = { tops: null, bottoms: null, shoes: null };
     if (g) initial[g.type] = g.id;
     return initial;
   });
-  const selectedId = outfit[garmentFilter] ?? GARMENTS.find(g => g.type === garmentFilter)?.id ?? 1;
+  const selectedId = outfit[garmentFilter] ?? null;
   const size = garmentFilter === "shoes" ? shoeSize : clothingSize;
   const [saved,       setSaved]       = useState(false);
   const [tryOnUrl,    setTryOnUrl]    = useState<string | null>(null);
@@ -796,8 +830,8 @@ export default function TryOn() {
     }
   }, [uploadedPhoto, outfit, cacheReady, poseDetecting, poseRegions, doComposite]);
 
-  const garment    = GARMENTS.find(g => g.id === selectedId)!;
-  const fallbackUrl = gender === "man" ? garment.fallbackM : garment.fallbackF;
+  const garment    = GARMENTS.find(g => g.id === selectedId);
+  const fallbackUrl = garment ? (gender === "man" ? garment.fallbackM : garment.fallbackF) : "";
   const bmi         = weight / Math.pow(height / 100, 2);
 
   function readFile(file: File, cb: (url: string) => void) {
@@ -834,7 +868,8 @@ export default function TryOn() {
     setBillingError(false);
 
     try {
-      const g = GARMENTS.find(x => x.id === selectedId)!;
+      const g = GARMENTS.find(x => x.id === selectedId);
+      if (!g) return;
       const clothingType = toClothingTypePayload(g.type);
       console.log("[tryon] AI request garment type:", g.type, "payload type:", clothingType, "id:", g.id, "name:", g.name);
 
@@ -1084,7 +1119,7 @@ export default function TryOn() {
               </section>
 
               {/* Waist Size – bottoms only */}
-              {garment.type === "bottoms" && (
+              {garment?.type === "bottoms" && (
                 <section>
                   <div className="flex items-center justify-between mb-1.5">
                     <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1">
@@ -1107,8 +1142,8 @@ export default function TryOn() {
                 </p>
                 <div className="flex gap-2">
                   {SIZES.map(s => (
-                    <button key={s} onClick={() => setSize(s)} data-testid={`button-size-${s}`}
-                      className={`flex-1 py-2 rounded-xl text-sm font-bold border-2 transition-all ${size === s ? "border-primary bg-primary text-white" : "border-border"}`}>
+                    <button key={s} onClick={() => setClothingSize(s)} data-testid={`button-size-${s}`}
+                      className={`flex-1 py-2 rounded-xl text-sm font-bold border-2 transition-all ${clothingSize === s ? "border-primary bg-primary text-white" : "border-border"}`}>
                       {s}
                     </button>
                   ))}
@@ -1148,7 +1183,7 @@ export default function TryOn() {
               </Button>
               <div className="flex-1 min-w-0">
                 <h1 className="text-base font-bold truncate">Virtual Try-On</h1>
-                <p className="text-xs text-muted-foreground">{garment.name} · Size {size}</p>
+                <p className="text-xs text-muted-foreground">{garment?.name ?? "Select a garment"} · Size {size}</p>
               </div>
               <button onClick={() => setSaved(s => !s)} data-testid="button-save-outfit"
                 className={`flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-full border shrink-0 transition-all
@@ -1167,7 +1202,7 @@ export default function TryOn() {
                 <img src={tryOnUrl} alt="Try-On"
                   className={`w-full h-full object-contain transition-opacity duration-200 ${compositing ? "opacity-60" : "opacity-100"}`} />
               ) : (
-                <img src={fallbackUrl} alt={garment.name}
+                <img src={fallbackUrl} alt={garment?.name ?? "Model"}
                   className="w-full h-full object-cover object-top" />
               )}
 
@@ -1210,10 +1245,12 @@ export default function TryOn() {
               )}
 
               {/* Garment name badge */}
-              <div className="absolute top-3 left-3 bg-black/55 backdrop-blur-sm rounded-full px-2.5 py-1 flex items-center gap-1.5">
-                <img src={garment.image} alt="" className="w-4 h-4 object-contain" />
-                <span className="text-white text-[10px] font-semibold">{garment.name}</span>
-              </div>
+              {garment && (
+                <div className="absolute top-3 left-3 bg-black/55 backdrop-blur-sm rounded-full px-2.5 py-1 flex items-center gap-1.5">
+                  <img src={garment.image} alt="" className="w-4 h-4 object-contain" />
+                  <span className="text-white text-[10px] font-semibold">{garment.name}</span>
+                </div>
+              )}
 
               {/* Result mode badge */}
               {tryOnUrl && !compositing && !aiLoading && !poseDetecting && (
@@ -1233,32 +1270,34 @@ export default function TryOn() {
               )}
 
               {/* Price + Cart */}
-              <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
-                <div className="bg-white/95 backdrop-blur rounded-2xl px-3 py-2 shadow-lg">
-                  <p className="text-[9px] text-muted-foreground">Price</p>
-                  <p className="text-base font-bold text-primary leading-none">{garment.price}</p>
-                  <p className="text-[9px] text-muted-foreground">Size: {size}</p>
+              {garment && (
+                <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
+                  <div className="bg-white/95 backdrop-blur rounded-2xl px-3 py-2 shadow-lg">
+                    <p className="text-[9px] text-muted-foreground">Price</p>
+                    <p className="text-base font-bold text-primary leading-none">{garment.price}</p>
+                    <p className="text-[9px] text-muted-foreground">Size: {size}</p>
+                  </div>
+                  <button className="bg-primary text-white rounded-2xl px-4 py-2.5 text-xs font-bold shadow-lg active:scale-95 transition-transform flex items-center gap-1.5"
+                    data-testid="button-add-to-cart"
+                    onClick={() => {
+                      addItem({
+                        garmentId: garment.id,
+                        name: garment.name,
+                        price: garment.price,
+                        size,
+                        image: garment.image,
+                        type: garment.type,
+                      });
+                      toast({
+                        title: "Added to cart",
+                        description: `${garment.name} (${size}) added to your cart`,
+                      });
+                    }}>
+                    <ShoppingCart size={13} />
+                    Add to Cart
+                  </button>
                 </div>
-                <button className="bg-primary text-white rounded-2xl px-4 py-2.5 text-xs font-bold shadow-lg active:scale-95 transition-transform flex items-center gap-1.5"
-                  data-testid="button-add-to-cart"
-                  onClick={() => {
-                    addItem({
-                      garmentId: garment.id,
-                      name: garment.name,
-                      price: garment.price,
-                      size,
-                      image: garment.image,
-                      type: garment.type,
-                    });
-                    toast({
-                      title: "Added to cart",
-                      description: `${garment.name} (${size}) added to your cart`,
-                    });
-                  }}>
-                  <ShoppingCart size={13} />
-                  Add to Cart
-                </button>
-              </div>
+              )}
             </div>
 
             {/* No photo hint */}
@@ -1357,10 +1396,6 @@ export default function TryOn() {
                 {(["tops", "bottoms", "shoes"] as GarmentType[]).map(cat => (
                   <button key={cat} onClick={() => {
                     setGarmentFilter(cat);
-                    if (outfit[cat] == null) {
-                      const first = GARMENTS.find(g => g.type === cat);
-                      if (first) setOutfit(prev => ({ ...prev, [cat]: first.id }));
-                    }
                   }}
                     data-testid={`button-filter-${cat}`}
                     className={`flex-1 h-8 rounded-full text-xs font-semibold border-2 transition-all relative
@@ -1458,7 +1493,7 @@ export default function TryOn() {
           <div className="flex items-center justify-between px-4 py-3 bg-black/80 backdrop-blur shrink-0 border-b border-white/10">
             <div>
               <p className="text-white text-sm font-bold">Final Try-On Preview</p>
-              <p className="text-white/50 text-[10px]">{garment.name} · {Math.round(zoom * 100)}% zoom</p>
+              <p className="text-white/50 text-[10px]">{garment?.name ?? ""} · {Math.round(zoom * 100)}% zoom</p>
             </div>
             <div className="flex items-center gap-2">
               {/* Zoom out */}
