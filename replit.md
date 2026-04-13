@@ -16,13 +16,23 @@ A mobile-first virtual try-on eCommerce app (Myntra-style) where users upload a 
 - **HEIC/unsupported format detection**: clear error messages for iPhone HEIC files
 - **Garment catalogue**: 10 items — 6 tops (T-shirts) + 4 bottoms (Classic Blue Jeans, Black Slim Jeans, Blue Denim Jeans, Khaki Chinos); Tops/Bottoms filter toggle in the picker UI
 
+## Shopping Cart
+- **Client-side cart**: React context (`client/src/lib/cartContext.tsx`) with localStorage persistence
+- **Cart page**: `/cart` route — shows items, quantity controls, remove, place order flow
+- **Add to Cart**: button on TryOn page adds current garment (with selected size) to cart; shows toast confirmation
+- **Cart badge**: bottom nav shows item count badge on the Cart icon
+- **Order flow**: Place Order clears cart and shows confirmation screen
+
 ## File Structure
 ```
 client/src/
   pages/TryOn.tsx        — main virtual try-on component
   pages/Home.tsx         — landing page
+  pages/Cart.tsx         — shopping cart page
   lib/poseDetector.ts    — TF.js MoveNet pose detection utility
+  lib/cartContext.tsx     — cart React context + localStorage persistence
   assets/images/         — garment PNG assets
+  components/layout/MobileLayout.tsx — bottom nav with cart badge
 
 server/
   index.ts               — Express server setup (20MB body limit)

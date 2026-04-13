@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { Home, ImagePlus, User, Briefcase } from "lucide-react";
+import { Home, ImagePlus, User, Briefcase, ShoppingCart } from "lucide-react";
+import { useCart } from "@/lib/cartContext";
 
 interface MobileLayoutProps {
   children: ReactNode;
@@ -9,11 +10,13 @@ interface MobileLayoutProps {
 
 export default function MobileLayout({ children, title }: MobileLayoutProps) {
   const [location] = useLocation();
+  const { totalItems } = useCart();
 
   const navItems = [
     { icon: Home, label: "Home", href: "/" },
     { icon: Briefcase, label: "Briefcase", href: "/wardrobe" },
     { icon: ImagePlus, label: "Try On", href: "/try-on" },
+    { icon: ShoppingCart, label: "Cart", href: "/cart", badge: totalItems },
     { icon: User, label: "Profile", href: "/profile" },
   ];
 
@@ -32,9 +35,18 @@ export default function MobileLayout({ children, title }: MobileLayoutProps) {
           const isActive = location === item.href;
           const Icon = item.icon;
           return (
-            <Link key={item.href} href={item.href} className={`flex flex-col items-center gap-0.5 ${isActive ? "text-primary" : "text-muted-foreground"}`}>
-                <div className={`p-1 rounded-full transition-colors ${isActive ? "bg-primary/10" : "hover:bg-muted"}`}>
+            <Link key={item.href} href={item.href} className={`flex flex-col items-center gap-0.5 ${isActive ? "text-primary" : "text-muted-foreground"}`}
+              data-testid={`link-nav-${item.label.toLowerCase().replace(/\s+/g, "-")}`}>
+                <div className={`relative p-1 rounded-full transition-colors ${isActive ? "bg-primary/10" : "hover:bg-muted"}`}>
                   <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
+                  {"badge" in item && item.badge > 0 && (
+                    <span
+                      className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[8px] font-bold min-w-[14px] h-[14px] rounded-full flex items-center justify-center px-0.5"
+                      data-testid="badge-cart-count"
+                    >
+                      {item.badge > 99 ? "99+" : item.badge}
+                    </span>
+                  )}
                 </div>
                 <span className="text-[9px] font-medium">{item.label}</span>
             </Link>

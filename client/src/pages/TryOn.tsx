@@ -5,10 +5,12 @@ import {
   ChevronLeft, Check, Camera, Image as ImageIcon,
   RotateCcw, Share2, Heart, Ruler, Weight, Shirt, Sparkles,
   Loader2, AlertCircle, Clock, Wand2, ScanLine,
-  ZoomIn, ZoomOut, X, Maximize2, RefreshCw, Move,
+  ZoomIn, ZoomOut, X, Maximize2, RefreshCw, Move, ShoppingCart,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { detectPoseRegions, type PoseRegions } from "@/lib/poseDetector";
+import { useCart } from "@/lib/cartContext";
+import { useToast } from "@/hooks/use-toast";
 
 import garment1 from "@/assets/images/tshirt-black.png";
 import garment2 from "@/assets/images/tshirt-white.png";
@@ -565,6 +567,8 @@ async function restoreBodyRegions(
 export default function TryOn() {
   const [, setLocation] = useLocation();
   const [step, setStep] = useState<1 | 2>(1);
+  const { addItem } = useCart();
+  const { toast } = useToast();
 
   /* ── profile ── */
   const [gender,       setGender]       = useState<Gender>("man");
@@ -1152,8 +1156,23 @@ export default function TryOn() {
                   <p className="text-base font-bold text-primary leading-none">{garment.price}</p>
                   <p className="text-[9px] text-muted-foreground">Size: {size}</p>
                 </div>
-                <button className="bg-primary text-white rounded-2xl px-4 py-2.5 text-xs font-bold shadow-lg active:scale-95 transition-transform"
-                  data-testid="button-add-to-cart">
+                <button className="bg-primary text-white rounded-2xl px-4 py-2.5 text-xs font-bold shadow-lg active:scale-95 transition-transform flex items-center gap-1.5"
+                  data-testid="button-add-to-cart"
+                  onClick={() => {
+                    addItem({
+                      garmentId: garment.id,
+                      name: garment.name,
+                      price: garment.price,
+                      size,
+                      image: garment.image,
+                      type: garment.type,
+                    });
+                    toast({
+                      title: "Added to cart",
+                      description: `${garment.name} (${size}) added to your cart`,
+                    });
+                  }}>
+                  <ShoppingCart size={13} />
                   Add to Cart
                 </button>
               </div>
