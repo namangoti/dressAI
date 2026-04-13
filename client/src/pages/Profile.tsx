@@ -1,5 +1,7 @@
+import { useRef, useState } from "react";
 import MobileLayout from "@/components/layout/MobileLayout";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   ChevronRight,
   Crown,
@@ -12,8 +14,11 @@ import {
   Star,
   Share2,
   LogOut,
+  Camera,
 } from "lucide-react";
 import { useAuth } from "@/lib/authContext";
+
+const AVATAR_KEY = "dressai-avatar";
 
 function SectionRow({
   icon,
@@ -71,6 +76,24 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export default function Profile() {
   const { user, logout } = useAuth();
   const appVersion = "1.0.0";
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string>(() => localStorage.getItem(AVATAR_KEY) ?? "");
+
+  function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const url = ev.target?.result as string;
+      localStorage.setItem(AVATAR_KEY, url);
+      setAvatarUrl(url);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  const initials = user?.name
+    ? user.name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2)
+    : "?";
 
   function handleShare() {
     if (navigator.share) {
@@ -92,16 +115,35 @@ export default function Profile() {
         {/* Avatar */}
         <div className="flex flex-col items-center pt-2 pb-1">
           <div className="relative mb-3">
-            <div className="w-22 h-22 rounded-full overflow-hidden border-4 border-background shadow-lg" style={{ width: 88, height: 88 }}>
-              <img
-                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&q=80"
-                alt="Profile"
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <div className="absolute bottom-0 right-0 bg-primary text-white w-7 h-7 rounded-full flex items-center justify-center border-2 border-background">
-              <Crown size={13} />
-            </div>
+            {/* Hidden file picker */}
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              data-testid="input-avatar"
+              onChange={handleAvatarChange}
+            />
+
+            {/* Tappable avatar */}
+            <button
+              data-testid="button-change-avatar"
+              onClick={() => fileRef.current?.click()}
+              className="relative block rounded-full focus:outline-none"
+              aria-label="Change profile photo"
+            >
+              <Avatar style={{ width: 88, height: 88 }} className="border-4 border-background shadow-lg">
+                <AvatarImage src={avatarUrl || undefined} alt="Profile" className="object-cover" />
+                <AvatarFallback className="bg-secondary text-2xl font-bold text-foreground">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+
+              {/* Camera badge */}
+              <span className="absolute bottom-0 right-0 bg-primary text-white w-7 h-7 rounded-full flex items-center justify-center border-2 border-background shadow">
+                <Camera size={13} />
+              </span>
+            </button>
           </div>
           <h2 className="text-xl font-bold">{user?.name ?? "Guest"}</h2>
           <p className="text-sm text-muted-foreground">{user?.email ?? ""}</p>
