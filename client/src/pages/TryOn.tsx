@@ -608,7 +608,6 @@ export default function TryOn() {
   const [weight,       setWeight]       = useState(70);
   const [clothingSize, setClothingSize] = useState<Size>("M");
   const [shoeSize,     setShoeSize]     = useState("8");
-  const size = garmentFilter === "shoes" ? shoeSize : clothingSize;
   const [waistSize,    setWaistSize]    = useState(32);
   const [skinTone,     setSkinTone]     = useState("medium");
   const [uploadedPhoto, setUploadedPhoto] = useState<string | null>(() => {
@@ -657,6 +656,7 @@ export default function TryOn() {
     return initial;
   });
   const selectedId = outfit[garmentFilter] ?? GARMENTS.find(g => g.type === garmentFilter)?.id ?? 1;
+  const size = garmentFilter === "shoes" ? shoeSize : clothingSize;
   const [saved,       setSaved]       = useState(false);
   const [tryOnUrl,    setTryOnUrl]    = useState<string | null>(null);
   const [tryOnMode,   setTryOnMode]   = useState<"canvas" | "ai">("canvas");
