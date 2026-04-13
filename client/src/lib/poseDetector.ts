@@ -14,6 +14,7 @@ export interface BodyRegion {
 export interface PoseRegions {
   tops:           BodyRegion | null;
   bottoms:        BodyRegion | null;
+  shoes:          BodyRegion | null;
   face:           BodyRegion | null;
   neckY:          number | null;
   hipCY:          number | null;
@@ -68,7 +69,7 @@ export async function detectPoseRegions(
   img: HTMLImageElement
 ): Promise<PoseRegions> {
   const empty: PoseRegions = {
-    tops: null, bottoms: null,
+    tops: null, bottoms: null, shoes: null,
     face: null, neckY: null, hipCY: null,
     detected: false,
     shoulderL: null, shoulderR: null,
@@ -212,8 +213,24 @@ export async function detectPoseRegions(
       ? ankleBottomY - headTopY
       : null;
 
+    let shoes: BodyRegion | null = null;
+    if (ok(lAnkle, rAnkle)) {
+      const ankleAvgY = (lAnkle!.y + rAnkle!.y) / 2;
+      const ankleMidX = (lAnkle!.x + rAnkle!.x) / 2;
+      const aSpan = Math.abs(rAnkle!.x - lAnkle!.x);
+      const footW = Math.max(aSpan * 2.8, shoulderSpan * 0.9);
+      const footTopY = ankleAvgY - torsoH * 0.08;
+      const footH = img.height - footTopY;
+      shoes = {
+        x: ankleMidX - footW / 2,
+        y: footTopY,
+        w: footW,
+        h: Math.max(footH, torsoH * 0.35),
+      };
+    }
+
     return {
-      tops, bottoms, face, neckY, hipCY, detected: true,
+      tops, bottoms, shoes, face, neckY, hipCY, detected: true,
       shoulderL:      { x: lShoulder!.x, y: lShoulder!.y },
       shoulderR:      { x: rShoulder!.x, y: rShoulder!.y },
       shoulderSpanPx: shoulderSpan,

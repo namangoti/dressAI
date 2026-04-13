@@ -14,7 +14,9 @@ A mobile-first virtual try-on eCommerce app (Myntra-style) where users upload a 
 - **Pose-based body alignment**: TensorFlow.js MoveNet detects 17 body keypoints; clothing is dynamically positioned and scaled to match detected shoulders, torso, hips, and ankles — not fixed coordinates
 - **AI photorealistic generation**: optional `Generate AI Image` button calls Replicate API (`cuuupid/idm-vton`) for a realistic result (requires Replicate billing credits); `denoise_steps=15` for faster generation
 - **HEIC/unsupported format detection**: clear error messages for iPhone HEIC files
-- **Garment catalogue**: 10 try-on-enabled items (6 tops, 4 bottoms) + 14 display-only products across shirts, shoes, dresses, etc.
+- **Garment catalogue**: 14 try-on-enabled items (6 tops, 4 bottoms, 4 shoes) + 10 display-only products across shirts, shoes, dresses, etc.
+- **Virtual shoe try-on**: Canvas-based shoe placement using ankle keypoints; width-first fit, no tilt/taper; AI generation disabled for shoes (IDM-VTON doesn't support footwear)
+- **Multi-garment layering**: Outfit state tracks tops + bottoms + shoes simultaneously; composite layers in order (tops → bottoms → shoes); green dot indicators on inactive tabs with selected items
 
 ## Product Browsing Flow
 - **Home → Category**: grid items and category circles link to `/catalog?category=<slug>` (e.g., `/catalog?category=jeans`)
@@ -55,7 +57,7 @@ shared/
 ## Pose Detection Flow
 1. User uploads photo → `readFile()` validates format (rejects HEIC)
 2. `detectPoseRegions(img)` runs MoveNet SINGLEPOSE_LIGHTNING (lazy-loaded)
-3. Returns pixel-space `tops` and `bottoms` `BodyRegion` objects
+3. Returns pixel-space `tops`, `bottoms`, and `shoes` `BodyRegion` objects (shoes region from ankle keypoints)
 4. `composite()` uses these regions to place garments at exact shoulder/hip positions
 5. Falls back to proportional estimates if no pose detected
 

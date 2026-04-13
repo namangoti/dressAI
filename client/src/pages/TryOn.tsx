@@ -22,9 +22,14 @@ import garment7 from "@/assets/images/mens-jeans.png";
 import garment8 from "@/assets/images/jeans-black-slim.png";
 import garment9 from "@/assets/images/jeans-blue-denim.png";
 import garment10 from "@/assets/images/trousers-khaki-chino.png";
+import shoe1 from "@/assets/images/shoes-white-sneakers.jpg";
+import shoe2 from "@/assets/images/shoes-running-red.jpg";
+import shoe3 from "@/assets/images/shoes-oxford-formal.jpg";
+import shoe4 from "@/assets/images/shoes-canvas-casual.jpg";
 
 /* ── Outfit catalogue ─────────────────────────────────────── */
-type GarmentType = "tops" | "bottoms";
+type GarmentType = "tops" | "bottoms" | "shoes";
+type OutfitSelections = { tops: number | null; bottoms: number | null; shoes: number | null };
 const GARMENTS = [
   { id: 1,  image: garment1,  name: "Black T-Shirt",     price: "₹599",  tag: "Bestseller", type: "tops" as GarmentType,
     fallbackM: "https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=600&q=80",
@@ -56,9 +61,22 @@ const GARMENTS = [
   { id: 10, image: garment10, name: "Khaki Chinos",      price: "₹999",  tag: "Hot",        type: "bottoms" as GarmentType,
     fallbackM: "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=600&q=80",
     fallbackF: "https://images.unsplash.com/photo-1506629082955-511b1aa562c8?w=600&q=80" },
+  { id: 15, image: shoe1,     name: "White Sneakers",     price: "₹2,499", tag: "Bestseller", type: "shoes" as GarmentType,
+    fallbackM: "https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?w=600&q=80",
+    fallbackF: "https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?w=600&q=80" },
+  { id: 16, image: shoe2,     name: "Running Shoes",      price: "₹3,499", tag: "Hot",        type: "shoes" as GarmentType,
+    fallbackM: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&q=80",
+    fallbackF: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&q=80" },
+  { id: 17, image: shoe3,     name: "Oxford Formal",      price: "₹3,999", tag: "",           type: "shoes" as GarmentType,
+    fallbackM: "https://images.unsplash.com/photo-1614252369475-531eba835eb1?w=600&q=80",
+    fallbackF: "https://images.unsplash.com/photo-1614252369475-531eba835eb1?w=600&q=80" },
+  { id: 18, image: shoe4,     name: "Canvas Casual",      price: "₹1,299", tag: "New",        type: "shoes" as GarmentType,
+    fallbackM: "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=600&q=80",
+    fallbackF: "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=600&q=80" },
 ];
 
 const SIZES = ["XS", "S", "M", "L", "XL", "XXL"] as const;
+const SHOE_SIZES = ["6", "7", "8", "9", "10", "11", "12"] as const;
 type Size   = typeof SIZES[number];
 type Gender = "man" | "woman";
 type ClothingTypePayload = "top" | "bottom";
@@ -234,15 +252,20 @@ async function composite(
   let garX: number, garY: number, garW: number, garH: number;
 
   const region = poseRegions?.detected
-    ? (type === "tops" ? poseRegions.tops : poseRegions.bottoms)
+    ? (type === "tops" ? poseRegions.tops : type === "bottoms" ? poseRegions.bottoms : poseRegions.shoes)
     : null;
 
   const bodySplitY = ph * 0.5;
-  const regionYMin = type === "tops" ? 0 : bodySplitY;
+  const regionYMin = type === "tops" ? 0 : type === "bottoms" ? bodySplitY : ph * 0.75;
   const regionYMax = type === "tops" ? bodySplitY : ph;
 
   if (region) {
-    if (type === "bottoms") {
+    if (type === "shoes") {
+      garW = region.w;
+      garH = garW * (garmentCanvas.height / garmentCanvas.width);
+      garX = region.x;
+      garY = region.y + (region.h - garH) / 2;
+    } else if (type === "bottoms") {
       garH = region.h;
       garW = garH * (garmentCanvas.width / garmentCanvas.height);
       garX = region.x + (region.w - garW) / 2;
@@ -256,12 +279,19 @@ async function composite(
       garY = region.y + (region.h - garH) / 2;
     }
   } else {
-    const yStart = type === "tops"    ? ph * 0.14 : ph * 0.55;
-    const yEnd   = type === "bottoms" ? ph * 0.98 : ph * 0.62;
-    garH = yEnd - yStart;
-    garW = garH * (garmentCanvas.width / garmentCanvas.height);
-    garX = (pw - garW) / 2;
-    garY = yStart;
+    if (type === "shoes") {
+      garY = ph * 0.82;
+      garW = pw * 0.40;
+      garH = garW * (garmentCanvas.height / garmentCanvas.width);
+      garX = (pw - garW) / 2;
+    } else {
+      const yStart = type === "tops"    ? ph * 0.14 : ph * 0.55;
+      const yEnd   = type === "bottoms" ? ph * 0.98 : ph * 0.62;
+      garH = yEnd - yStart;
+      garW = garH * (garmentCanvas.width / garmentCanvas.height);
+      garX = (pw - garW) / 2;
+      garY = yStart;
+    }
   }
 
   const bandHeight = regionYMax - regionYMin;
@@ -278,7 +308,9 @@ async function composite(
   const MAX_TILT = 15 * Math.PI / 180;
   let tiltAngle = 0;
 
-  if (type === "tops" && poseRegions?.shoulderL && poseRegions?.shoulderR) {
+  if (type === "shoes") {
+    tiltAngle = 0;
+  } else if (type === "tops" && poseRegions?.shoulderL && poseRegions?.shoulderR) {
     const sLeft  = poseRegions.shoulderL.x <= poseRegions.shoulderR.x
       ? poseRegions.shoulderL : poseRegions.shoulderR;
     const sRight = poseRegions.shoulderL.x <= poseRegions.shoulderR.x
@@ -574,7 +606,9 @@ export default function TryOn() {
   const [gender,       setGender]       = useState<Gender>("man");
   const [height,       setHeight]       = useState(170);
   const [weight,       setWeight]       = useState(70);
-  const [size,         setSize]         = useState<Size>("M");
+  const [clothingSize, setClothingSize] = useState<Size>("M");
+  const [shoeSize,     setShoeSize]     = useState("8");
+  const size = garmentFilter === "shoes" ? shoeSize : clothingSize;
   const [waistSize,    setWaistSize]    = useState(32);
   const [skinTone,     setSkinTone]     = useState("medium");
   const [uploadedPhoto, setUploadedPhoto] = useState<string | null>(() => {
@@ -610,13 +644,19 @@ export default function TryOn() {
   /* ── outfit state ── */
   const [garmentFilter, setGarmentFilter] = useState<GarmentType>(() => {
     const params = new URLSearchParams(window.location.search);
-    return (params.get("filter") as GarmentType) || "tops";
+    const f = params.get("filter") as GarmentType;
+    if (f === "tops" || f === "bottoms" || f === "shoes") return f;
+    return "tops";
   });
-  const [selectedId,  setSelectedId]  = useState(() => {
+  const [outfit, setOutfit] = useState<OutfitSelections>(() => {
     const params = new URLSearchParams(window.location.search);
     const gId = parseInt(params.get("garment") || "0");
-    return gId && GARMENTS.find(g => g.id === gId) ? gId : 1;
+    const g = GARMENTS.find(x => x.id === gId);
+    const initial: OutfitSelections = { tops: 1, bottoms: null, shoes: null };
+    if (g) initial[g.type] = g.id;
+    return initial;
   });
+  const selectedId = outfit[garmentFilter] ?? GARMENTS.find(g => g.type === garmentFilter)?.id ?? 1;
   const [saved,       setSaved]       = useState(false);
   const [tryOnUrl,    setTryOnUrl]    = useState<string | null>(null);
   const [tryOnMode,   setTryOnMode]   = useState<"canvas" | "ai">("canvas");
@@ -655,7 +695,7 @@ export default function TryOn() {
     selectedIdRef.current = selectedId;
     setAiResultUrl(null);
     setTryOnMode("canvas");
-  }, [selectedId]);
+  }, [selectedId, outfit]);
 
   /* Elapsed-time ticker while AI is generating */
   useEffect(() => {
@@ -716,19 +756,27 @@ export default function TryOn() {
     img.src = uploadedPhoto;
   }, [uploadedPhoto]);
 
-  /* Auto-composite whenever photo, garment, cache, or pose regions change */
+  /* Auto-composite whenever photo, outfit, cache, or pose regions change */
   const doComposite = useCallback(async (
     photo: string,
-    garmentId: number,
+    outfitSel: OutfitSelections,
     regions: PoseRegions | null,
   ) => {
-    const garmentCanvas = cache.current.get(garmentId);
-    if (!garmentCanvas) return;
-    const g = GARMENTS.find(x => x.id === garmentId)!;
-    console.log("[tryon] composite garment type:", g.type, "id:", g.id, "name:", g.name);
+    const layerOrder: GarmentType[] = ["tops", "bottoms", "shoes"];
+    const hasAny = layerOrder.some(t => outfitSel[t] != null && cache.current.has(outfitSel[t]!));
+    if (!hasAny) return;
     setCompositing(true);
     try {
-      const result = await composite(photo, garmentCanvas, g.type, regions);
+      let result = photo;
+      for (const type of layerOrder) {
+        const id = outfitSel[type];
+        if (id == null) continue;
+        const garmentCanvas = cache.current.get(id);
+        if (!garmentCanvas) continue;
+        const g = GARMENTS.find(x => x.id === id)!;
+        console.log("[tryon] composite garment type:", g.type, "id:", g.id, "name:", g.name);
+        result = await composite(result, garmentCanvas, g.type, regions);
+      }
       setTryOnUrl(result);
       setTryOnMode("canvas");
     } catch (err: any) {
@@ -740,12 +788,13 @@ export default function TryOn() {
   }, []);
 
   useEffect(() => {
-    if (uploadedPhoto && cacheReady && !poseDetecting) {
-      doComposite(uploadedPhoto, selectedId, poseRegions);
+    const hasAny = outfit.tops != null || outfit.bottoms != null || outfit.shoes != null;
+    if (uploadedPhoto && cacheReady && !poseDetecting && hasAny) {
+      doComposite(uploadedPhoto, outfit, poseRegions);
     } else if (!uploadedPhoto) {
       setTryOnUrl(null);
     }
-  }, [uploadedPhoto, selectedId, cacheReady, poseDetecting, poseRegions, doComposite]);
+  }, [uploadedPhoto, outfit, cacheReady, poseDetecting, poseRegions, doComposite]);
 
   const garment    = GARMENTS.find(g => g.id === selectedId)!;
   const fallbackUrl = gender === "man" ? garment.fallbackM : garment.fallbackF;
@@ -1248,24 +1297,28 @@ export default function TryOn() {
                   </div>
                 )}
 
-                {/* Generate button */}
-                <button onClick={runAiTryOn} disabled={aiLoading || aiEnhancing}
-                  data-testid="button-generate-ai"
-                  className="w-full flex items-center justify-center gap-2 h-11 rounded-2xl font-bold text-sm
-                    bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-lg shadow-violet-200
-                    active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed">
-                  {aiLoading ? (
-                    <><Loader2 size={15} className="animate-spin" /> Generating… {elapsed}s</>
-                  ) : aiEnhancing ? (
-                    <><Loader2 size={15} className="animate-spin" /> Enhancing face &amp; hem…</>
-                  ) : (
-                    <><Wand2 size={15} /> Generate Photorealistic Try-On</>
-                  )}
-                </button>
-                {!aiLoading && !aiEnhancing && (
-                  <p className="text-center text-[10px] text-muted-foreground leading-snug">
-                    AI cloth warping · lighting match · body fit · usually 30–90 sec
-                  </p>
+                {/* Generate button — disabled for shoes (AI model only supports tops/bottoms) */}
+                {garmentFilter !== "shoes" && (
+                  <>
+                    <button onClick={runAiTryOn} disabled={aiLoading || aiEnhancing}
+                      data-testid="button-generate-ai"
+                      className="w-full flex items-center justify-center gap-2 h-11 rounded-2xl font-bold text-sm
+                        bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-lg shadow-violet-200
+                        active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed">
+                      {aiLoading ? (
+                        <><Loader2 size={15} className="animate-spin" /> Generating… {elapsed}s</>
+                      ) : aiEnhancing ? (
+                        <><Loader2 size={15} className="animate-spin" /> Enhancing face &amp; hem…</>
+                      ) : (
+                        <><Wand2 size={15} /> Generate Photorealistic Try-On</>
+                      )}
+                    </button>
+                    {!aiLoading && !aiEnhancing && (
+                      <p className="text-center text-[10px] text-muted-foreground leading-snug">
+                        AI cloth warping · lighting match · body fit · usually 30–90 sec
+                      </p>
+                    )}
+                  </>
                 )}
 
                 {/* View Full Preview button — shown after AI result is ready */}
@@ -1299,23 +1352,25 @@ export default function TryOn() {
                 </span>
               </div>
 
-              {/* Tops / Bottoms filter toggle */}
+              {/* Tops / Bottoms / Shoes filter toggle */}
               <div className="flex gap-1.5 mb-2.5">
-                {(["tops", "bottoms"] as GarmentType[]).map(cat => (
+                {(["tops", "bottoms", "shoes"] as GarmentType[]).map(cat => (
                   <button key={cat} onClick={() => {
                     setGarmentFilter(cat);
-                    const current = GARMENTS.find(g => g.id === selectedId);
-                    if (current?.type !== cat) {
+                    if (outfit[cat] == null) {
                       const first = GARMENTS.find(g => g.type === cat);
-                      if (first) setSelectedId(first.id);
+                      if (first) setOutfit(prev => ({ ...prev, [cat]: first.id }));
                     }
                   }}
                     data-testid={`button-filter-${cat}`}
-                    className={`flex-1 h-8 rounded-full text-xs font-semibold border-2 transition-all
+                    className={`flex-1 h-8 rounded-full text-xs font-semibold border-2 transition-all relative
                       ${garmentFilter === cat
                         ? "bg-primary border-primary text-white shadow-sm"
                         : "bg-background border-border/50 text-muted-foreground"}`}>
-                    {cat === "tops" ? "Tops" : "Bottoms"}
+                    {cat === "tops" ? "Tops" : cat === "bottoms" ? "Bottoms" : "Shoes"}
+                    {outfit[cat] != null && garmentFilter !== cat && (
+                      <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full border border-background" />
+                    )}
                   </button>
                 ))}
               </div>
@@ -1323,10 +1378,10 @@ export default function TryOn() {
               <div className="flex gap-2.5 overflow-x-auto hide-scrollbar -mx-4 px-4 pb-2">
                 {GARMENTS.filter(g => g.type === garmentFilter).map(g => (
                   <div key={g.id}
-                    onClick={() => { setSelectedId(g.id); setGarmentFilter(g.type); }}
+                    onClick={() => { setOutfit(prev => ({ ...prev, [g.type]: g.id })); setGarmentFilter(g.type); }}
                     data-testid={`card-garment-${g.id}`}
                     className={`relative flex-shrink-0 w-[68px] rounded-2xl overflow-hidden cursor-pointer border-2 transition-all active:scale-95
-                      ${selectedId === g.id ? "border-primary shadow-md shadow-primary/25 scale-105" : "border-border/40"}`}
+                      ${outfit[g.type] === g.id ? "border-primary shadow-md shadow-primary/25 scale-105" : "border-border/40"}`}
                     style={{ aspectRatio: "3/4" }}>
                     <img src={g.image}
                       alt={g.name}
@@ -1336,7 +1391,7 @@ export default function TryOn() {
                         {g.tag}
                       </div>
                     )}
-                    {selectedId === g.id && (
+                    {outfit[g.type] === g.id && (
                       <div className="absolute top-1 right-1 bg-primary rounded-full p-0.5">
                         <Check size={9} className="text-white" />
                       </div>
@@ -1353,15 +1408,27 @@ export default function TryOn() {
             {/* Size bar */}
             <div className="shrink-0 px-4 mt-1.5">
               <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground font-medium shrink-0">Size:</span>
+                <span className="text-xs text-muted-foreground font-medium shrink-0">
+                  {garmentFilter === "shoes" ? "UK Size:" : "Size:"}
+                </span>
                 <div className="flex gap-1.5 overflow-x-auto hide-scrollbar">
-                  {SIZES.map(s => (
-                    <button key={s} onClick={() => setSize(s)} data-testid={`button-size-${s}`}
-                      className={`flex-shrink-0 w-9 h-8 rounded-lg text-xs font-bold border-2 transition-all
-                        ${size === s ? "border-primary bg-primary text-white" : "border-border"}`}>
-                      {s}
-                    </button>
-                  ))}
+                  {garmentFilter === "shoes" ? (
+                    SHOE_SIZES.map(s => (
+                      <button key={s} onClick={() => setShoeSize(s)} data-testid={`button-shoe-size-${s}`}
+                        className={`flex-shrink-0 w-9 h-8 rounded-lg text-xs font-bold border-2 transition-all
+                          ${shoeSize === s ? "border-primary bg-primary text-white" : "border-border"}`}>
+                        {s}
+                      </button>
+                    ))
+                  ) : (
+                    SIZES.map(s => (
+                      <button key={s} onClick={() => setClothingSize(s)} data-testid={`button-size-${s}`}
+                        className={`flex-shrink-0 w-9 h-8 rounded-lg text-xs font-bold border-2 transition-all
+                          ${clothingSize === s ? "border-primary bg-primary text-white" : "border-border"}`}>
+                        {s}
+                      </button>
+                    ))
+                  )}
                 </div>
               </div>
             </div>

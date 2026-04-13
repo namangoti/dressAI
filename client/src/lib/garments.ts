@@ -9,7 +9,7 @@ import garment8 from "@/assets/images/jeans-black-slim.png";
 import garment9 from "@/assets/images/jeans-blue-denim.png";
 import garment10 from "@/assets/images/trousers-khaki-chino.png";
 
-export type GarmentType = "tops" | "bottoms";
+export type GarmentType = "tops" | "bottoms" | "shoes";
 export type CatalogCategory = "tshirts" | "shirts" | "jeans" | "trousers" | "dresses" | "tops" | "sneakers" | "formal-shoes" | "sports-shoes" | "casual-shoes" | "sandals" | "loafers";
 
 export interface Product {
@@ -99,27 +99,31 @@ export const PRODUCTS: Product[] = [
     tryOnEnabled: false, rating: 4.4, reviews: 912, colors: ["#4682B4", "#5F9EA0"], material: "100% Cotton Denim",
     fallbackM: "", fallbackF: "" },
 
-  { id: 15, image: "https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?w=400&q=80", name: "White Sneakers", price: "₹2,499", tag: "Bestseller", type: "tops", category: "sneakers",
+  { id: 15, image: "https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?w=400&q=80", name: "White Sneakers", price: "₹2,499", tag: "Bestseller", type: "shoes", category: "sneakers",
     description: "Clean white leather sneakers with cushioned insole. Timeless design goes with any outfit.",
-    tryOnEnabled: false, rating: 4.7, reviews: 5670, colors: ["#FFFFFF"], material: "Genuine Leather",
-    fallbackM: "", fallbackF: "" },
-  { id: 16, image: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80", name: "Running Shoes", price: "₹3,499", tag: "Hot", type: "tops", category: "sports-shoes",
+    tryOnEnabled: true, rating: 4.7, reviews: 5670, colors: ["#FFFFFF"], material: "Genuine Leather",
+    fallbackM: "https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?w=600&q=80",
+    fallbackF: "https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?w=600&q=80" },
+  { id: 16, image: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80", name: "Running Shoes", price: "₹3,499", tag: "Hot", type: "shoes", category: "sports-shoes",
     description: "Lightweight running shoes with responsive cushioning. Breathable mesh upper for maximum comfort.",
-    tryOnEnabled: false, rating: 4.5, reviews: 3456, colors: ["#FF4500", "#000000"], material: "Mesh & Synthetic",
-    fallbackM: "", fallbackF: "" },
-  { id: 17, image: "https://images.unsplash.com/photo-1614252369475-531eba835eb1?w=400&q=80", name: "Oxford Formal Shoes", price: "₹3,999", tag: "", type: "tops", category: "formal-shoes",
+    tryOnEnabled: true, rating: 4.5, reviews: 3456, colors: ["#FF4500", "#000000"], material: "Mesh & Synthetic",
+    fallbackM: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&q=80",
+    fallbackF: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&q=80" },
+  { id: 17, image: "https://images.unsplash.com/photo-1614252369475-531eba835eb1?w=400&q=80", name: "Oxford Formal Shoes", price: "₹3,999", tag: "", type: "shoes", category: "formal-shoes",
     description: "Elegant leather Oxford shoes with brogue detailing. Handcrafted for a premium finish.",
-    tryOnEnabled: false, rating: 4.6, reviews: 1230, colors: ["#8B4513", "#000000"], material: "Genuine Leather",
-    fallbackM: "", fallbackF: "" },
-  { id: 18, image: "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=400&q=80", name: "Canvas Casual Shoes", price: "₹1,299", tag: "New", type: "tops", category: "casual-shoes",
+    tryOnEnabled: true, rating: 4.6, reviews: 1230, colors: ["#8B4513", "#000000"], material: "Genuine Leather",
+    fallbackM: "https://images.unsplash.com/photo-1614252369475-531eba835eb1?w=600&q=80",
+    fallbackF: "https://images.unsplash.com/photo-1614252369475-531eba835eb1?w=600&q=80" },
+  { id: 18, image: "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=400&q=80", name: "Canvas Casual Shoes", price: "₹1,299", tag: "New", type: "shoes", category: "casual-shoes",
     description: "Relaxed canvas shoes for everyday wear. Lightweight and easy to slip on.",
-    tryOnEnabled: false, rating: 4.2, reviews: 890, colors: ["#F5F5DC", "#4682B4"], material: "Canvas & Rubber",
-    fallbackM: "", fallbackF: "" },
-  { id: 19, image: "https://images.unsplash.com/photo-1582897085656-c636d006a246?w=400&q=80", name: "Leather Loafers", price: "₹2,799", tag: "Trending", type: "tops", category: "loafers",
+    tryOnEnabled: true, rating: 4.2, reviews: 890, colors: ["#F5F5DC", "#4682B4"], material: "Canvas & Rubber",
+    fallbackM: "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=600&q=80",
+    fallbackF: "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=600&q=80" },
+  { id: 19, image: "https://images.unsplash.com/photo-1582897085656-c636d006a246?w=400&q=80", name: "Leather Loafers", price: "₹2,799", tag: "Trending", type: "shoes", category: "loafers",
     description: "Classic penny loafers in supple leather. Versatile enough for work or weekend.",
     tryOnEnabled: false, rating: 4.4, reviews: 1456, colors: ["#8B4513", "#D2691E"], material: "Genuine Leather",
     fallbackM: "", fallbackF: "" },
-  { id: 20, image: "https://images.unsplash.com/photo-1603487742131-4160ec999306?w=400&q=80", name: "Leather Sandals", price: "₹999", tag: "", type: "tops", category: "sandals",
+  { id: 20, image: "https://images.unsplash.com/photo-1603487742131-4160ec999306?w=400&q=80", name: "Leather Sandals", price: "₹999", tag: "", type: "shoes", category: "sandals",
     description: "Comfortable leather sandals with padded footbed. Perfect for beach or casual outings.",
     tryOnEnabled: false, rating: 4.1, reviews: 567, colors: ["#D2B48C", "#8B4513"], material: "Genuine Leather",
     fallbackM: "", fallbackF: "" },

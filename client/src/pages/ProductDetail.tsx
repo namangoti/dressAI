@@ -46,8 +46,9 @@ export default function ProductDetail() {
   };
 
   const handleTryOn = () => {
-    const garmentType = product.type === "bottoms" ? "bottoms" : "tops";
-    setLocation(`/try-on?garment=${product.id}&filter=${garmentType}`);
+    const isShoe = ["sneakers", "sports-shoes", "formal-shoes", "casual-shoes", "loafers", "sandals"].includes(product.category);
+    const filter = isShoe ? "shoes" : product.type === "bottoms" ? "bottoms" : "tops";
+    setLocation(`/try-on?garment=${product.id}&filter=${filter}`);
   };
 
   return (
