@@ -710,6 +710,7 @@ export default function TryOn() {
   const [aiResultUrl,  setAiResultUrl]  = useState<string | null>(null);
   const timerRef      = useRef<ReturnType<typeof setInterval> | null>(null);
   const selectedIdRef = useRef(selectedId);
+  const autoAiTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /* ── Fullscreen preview + zoom state ── */
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -821,14 +822,24 @@ export default function TryOn() {
     }
   }, []);
 
+  /* Canvas composite — shoes only (clothing uses AI instead) */
   useEffect(() => {
-    const hasAny = outfit.tops != null || outfit.bottoms != null || outfit.shoes != null;
-    if (uploadedPhoto && cacheReady && !poseDetecting && hasAny) {
-      doComposite(uploadedPhoto, outfit, poseRegions);
+    if (uploadedPhoto && cacheReady && !poseDetecting && outfit.shoes != null) {
+      doComposite(uploadedPhoto, { tops: null, bottoms: null, shoes: outfit.shoes }, poseRegions);
     } else if (!uploadedPhoto) {
       setTryOnUrl(null);
     }
-  }, [uploadedPhoto, outfit, cacheReady, poseDetecting, poseRegions, doComposite]);
+  }, [uploadedPhoto, outfit.shoes, cacheReady, poseDetecting, poseRegions, doComposite]);
+
+  /* Auto-trigger AI try-on after garment is selected (1.5 s debounce) */
+  useEffect(() => {
+    if (autoAiTimerRef.current) clearTimeout(autoAiTimerRef.current);
+    if (!uploadedPhoto || !selectedId || aiLoading || aiEnhancing) return;
+    const g = GARMENTS.find(x => x.id === selectedId);
+    if (!g || g.type === "shoes") return;
+    autoAiTimerRef.current = setTimeout(() => { runAiTryOn(); }, 1500);
+    return () => { if (autoAiTimerRef.current) clearTimeout(autoAiTimerRef.current); };
+  }, [selectedId, uploadedPhoto]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const garment    = GARMENTS.find(g => g.id === selectedId);
   const fallbackUrl = garment ? (gender === "man" ? garment.fallbackM : garment.fallbackF) : "";
@@ -1353,7 +1364,7 @@ export default function TryOn() {
                   </div>
                 )}
 
-                {/* Generate button — disabled for shoes (AI model only supports tops/bottoms) */}
+                {/* Generate / Regenerate button — disabled for shoes */}
                 {garmentFilter !== "shoes" && (
                   <>
                     <button onClick={runAiTryOn} disabled={aiLoading || aiEnhancing}
@@ -1364,14 +1375,16 @@ export default function TryOn() {
                       {aiLoading ? (
                         <><Loader2 size={15} className="animate-spin" /> Generating… {elapsed}s</>
                       ) : aiEnhancing ? (
-                        <><Loader2 size={15} className="animate-spin" /> Enhancing face &amp; hem…</>
+                        <><Loader2 size={15} className="animate-spin" /> Enhancing…</>
+                      ) : aiResultUrl ? (
+                        <><RefreshCw size={15} /> Regenerate</>
                       ) : (
-                        <><Wand2 size={15} /> Generate Photorealistic Try-On</>
+                        <><Wand2 size={15} /> Generate AI Try-On</>
                       )}
                     </button>
-                    {!aiLoading && !aiEnhancing && (
+                    {!aiLoading && !aiEnhancing && !aiResultUrl && (
                       <p className="text-center text-[10px] text-muted-foreground leading-snug">
-                        AI cloth warping · lighting match · body fit · usually 30–90 sec
+                        Auto-generates when you pick a garment · usually 30–90 sec
                       </p>
                     )}
                   </>
